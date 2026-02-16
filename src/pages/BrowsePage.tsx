@@ -39,6 +39,7 @@ const BrowsePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryVideoCounts, setCategoryVideoCounts] = useState<Record<string, number>>({});
   const [videos, setVideos] = useState<Video[]>([]);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +54,12 @@ const BrowsePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchVideos();
+    if (selectedCategory) {
+      fetchVideos();
+    } else {
+      setVideos([]);
+      setIsLoading(false);
+    }
   }, [selectedCategory, sortBy, filterPremium, searchQuery]);
 
   useEffect(() => {
@@ -68,6 +74,20 @@ const BrowsePage: React.FC = () => {
       .select('*')
       .order('sort_order');
     setCategories(data || []);
+
+    // Fetch video counts per category
+    if (data) {
+      const counts: Record<string, number> = {};
+      for (const cat of data) {
+        const { count } = await supabase
+          .from('videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('category_id', cat.id)
+          .eq('is_published', true);
+        counts[cat.id] = count || 0;
+      }
+      setCategoryVideoCounts(counts);
+    }
   };
 
   const fetchVideos = async () => {
@@ -169,63 +189,65 @@ const BrowsePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search videos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filters - only show when inside a category */}
+        {selectedCategory && (
+          <div className="flex flex-col md:flex-row gap-4 mb-8">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                placeholder="Search videos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Select
+                value={sortBy}
+                onValueChange={(value) => updateFilter('sort', value)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Most Recent</SelectItem>
+                  <SelectItem value="trending">Trending</SelectItem>
+                  <SelectItem value="popular">Most Popular</SelectItem>
+                  <SelectItem value="duration">Duration</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filterPremium || 'all'}
+                onValueChange={(value) =>
+                  updateFilter('premium', value === 'all' ? null : value)
+                }
+              >
+                <SelectTrigger className="w-32">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Videos</SelectItem>
+                  <SelectItem value="free">Free Only</SelectItem>
+                  <SelectItem value="premium">Premium Only</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button variant="ghost" onClick={clearFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
+        )}
 
-          <div className="flex gap-2">
-            <Select
-              value={sortBy}
-              onValueChange={(value) => updateFilter('sort', value)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Most Recent</SelectItem>
-                <SelectItem value="trending">Trending</SelectItem>
-                <SelectItem value="popular">Most Popular</SelectItem>
-                <SelectItem value="duration">Duration</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filterPremium || 'all'}
-              onValueChange={(value) =>
-                updateFilter('premium', value === 'all' ? null : value)
-              }
-            >
-              <SelectTrigger className="w-32">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Videos</SelectItem>
-                <SelectItem value="free">Free Only</SelectItem>
-                <SelectItem value="premium">Premium Only</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {hasActiveFilters && (
-              <Button variant="ghost" onClick={clearFilters}>
-                <X className="w-4 h-4 mr-2" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Categories */}
-        {!selectedCategory && categories.length > 0 && (
-          <div className="mb-12">
+        {/* Categories - show when no category is selected */}
+        {!selectedCategory && (
+          <div>
             <h2 className="font-display text-2xl font-semibold mb-6">Categories</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {categories.map((category) => (
@@ -234,6 +256,7 @@ const BrowsePage: React.FC = () => {
                   id={category.id}
                   name={category.name}
                   thumbnailUrl={category.thumbnail_url || undefined}
+                  videoCount={categoryVideoCounts[category.id] || 0}
                   isFeatured={category.is_featured}
                 />
               ))}
@@ -241,65 +264,62 @@ const BrowsePage: React.FC = () => {
           </div>
         )}
 
-        {/* Selected Category Header */}
+        {/* Selected Category Header + Videos */}
         {selectedCategory && (
-          <div className="mb-8 flex items-center justify-between">
+          <>
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <Button
+                  variant="ghost"
+                  onClick={() => updateFilter('category', null)}
+                  className="mb-2"
+                >
+                  ← All Categories
+                </Button>
+                <h2 className="font-display text-2xl font-semibold">
+                  {categories.find((c) => c.id === selectedCategory)?.name}
+                </h2>
+              </div>
+            </div>
+
             <div>
-              <Button
-                variant="ghost"
-                onClick={() => updateFilter('category', null)}
-                className="mb-2"
-              >
-                ← All Categories
-              </Button>
-              <h2 className="font-display text-2xl font-semibold">
-                {categories.find((c) => c.id === selectedCategory)?.name}
-              </h2>
-            </div>
-          </div>
-        )}
-
-        {/* Videos Grid */}
-        <div>
-          <h2 className="font-display text-2xl font-semibold mb-6">
-            {selectedCategory ? 'Videos' : 'All Videos'}
-          </h2>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="space-y-4">
-                  <Skeleton className="aspect-video rounded-2xl" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="space-y-4">
+                      <Skeleton className="aspect-video rounded-2xl" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : videos.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {videos.map((video) => (
+                    <VideoCard
+                      key={video.id}
+                      id={video.id}
+                      title={video.title}
+                      description={video.description || undefined}
+                      thumbnailUrl={video.thumbnail_url || undefined}
+                      duration={video.duration_seconds}
+                      isPremium={video.is_premium}
+                      yogicPoints={video.yogic_points}
+                      isInWishlist={wishlist.has(video.id)}
+                      onWishlistToggle={user ? () => toggleWishlist(video.id) : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-muted-foreground text-lg">
+                    No videos found in this category.
+                  </p>
+                </div>
+              )}
             </div>
-          ) : videos.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {videos.map((video) => (
-                <VideoCard
-                  key={video.id}
-                  id={video.id}
-                  title={video.title}
-                  description={video.description || undefined}
-                  thumbnailUrl={video.thumbnail_url || undefined}
-                  duration={video.duration_seconds}
-                  isPremium={video.is_premium}
-                  yogicPoints={video.yogic_points}
-                  isInWishlist={wishlist.has(video.id)}
-                  onWishlistToggle={user ? () => toggleWishlist(video.id) : undefined}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground text-lg">
-                No videos found. Try adjusting your filters.
-              </p>
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </UserLayout>
   );
