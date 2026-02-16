@@ -12,8 +12,10 @@ import { supabase } from '@/integrations/supabase/client';
 export const SignupForm: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmTouched, setConfirmTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
@@ -21,10 +23,12 @@ export const SignupForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get('ref');
 
+  const passwordsMatch = password === confirmPassword;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password !== confirmPassword) {
+    if (!passwordsMatch) {
       toast.error('Passwords do not match');
       return;
     }
@@ -34,9 +38,14 @@ export const SignupForm: React.FC = () => {
       return;
     }
 
+    if (!phone.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
+
     setIsLoading(true);
 
-    const { error } = await signUp(email, password, fullName);
+    const { error } = await signUp(email, password, fullName, phone);
 
     if (error) {
       toast.error('Signup failed', {
@@ -101,6 +110,18 @@ export const SignupForm: React.FC = () => {
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="+91 9876543210"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <Input
@@ -129,9 +150,18 @@ export const SignupForm: React.FC = () => {
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={() => setConfirmTouched(true)}
               required
               disabled={isLoading}
+              className={
+                confirmTouched && confirmPassword.length > 0 && !passwordsMatch
+                  ? 'border-destructive ring-destructive focus-visible:ring-destructive'
+                  : ''
+              }
             />
+            {confirmTouched && confirmPassword.length > 0 && !passwordsMatch && (
+              <p className="text-xs text-destructive">Passwords do not match</p>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">

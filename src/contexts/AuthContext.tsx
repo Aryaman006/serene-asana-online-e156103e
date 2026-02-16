@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   hasActiveSubscription: boolean;
   yogicPoints: number;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshSubscriptionStatus: () => Promise<void>;
@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -127,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailRedirectTo: window.location.origin,
           data: {
             full_name: fullName,
+            phone: phone || '',
           },
         },
       });
