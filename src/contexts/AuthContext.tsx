@@ -120,17 +120,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const formattedPhone = phone ? (phone.startsWith('+') ? phone : `+91${phone.replace(/\s/g, '')}`) : '';
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        phone: formattedPhone || undefined,
         options: {
           emailRedirectTo: window.location.origin,
           data: {
             full_name: fullName,
-            phone: phone || '',
+            phone: formattedPhone,
           },
         },
       });
+
+      // If signup succeeded and we have a session, update phone on the user
+      if (!error && data.session && formattedPhone) {
+        await supabase.auth.updateUser({ phone: formattedPhone });
+      }
+
       return { error };
     } catch (error) {
       return { error: error as Error };
