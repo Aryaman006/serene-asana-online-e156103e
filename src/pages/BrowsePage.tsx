@@ -75,17 +75,20 @@ const BrowsePage: React.FC = () => {
       .order('name');
     setCategories(data || []);
 
-    // Fetch video counts per category
+    // Fetch video counts per category in parallel
     if (data) {
+      const countResults = await Promise.all(
+        data.map(async (cat) => {
+          const { count } = await supabase
+            .from('videos')
+            .select('*', { count: 'exact', head: true })
+            .eq('category_id', cat.id)
+            .eq('is_published', true);
+          return { id: cat.id, count: count ?? 0 };
+        })
+      );
       const counts: Record<string, number> = {};
-      for (const cat of data) {
-        const { count } = await supabase
-          .from('videos')
-          .select('*', { count: 'exact', head: true })
-          .eq('category_id', cat.id)
-          .eq('is_published', true);
-        counts[cat.id] = count || 0;
-      }
+      countResults.forEach((r) => { counts[r.id] = r.count; });
       setCategoryVideoCounts(counts);
     }
   };
