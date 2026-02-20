@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Eye, EyeOff, Loader2, Phone, Mail } from 'lucide-react';
+import { firebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from '@/lib/firebase';
+import type { ConfirmationResult } from '@/lib/firebase';
 
 type LoginMethod = 'email' | 'phone';
 
@@ -21,8 +23,26 @@ export const LoginForm: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize reCAPTCHA verifier
+  const setupRecaptcha = () => {
+    if (recaptchaVerifierRef.current) {
+      return recaptchaVerifierRef.current;
+    }
+    const verifier = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      },
+    });
+    recaptchaVerifierRef.current = verifier;
+    return verifier;
+  };
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
@@ -68,18 +88,17 @@ export const LoginForm: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: phone.startsWith('+') ? phone : `+91${phone}`,
-      });
-
-      if (error) {
-        toast.error('Failed to send OTP', { description: error.message });
-      } else {
-        setOtpSent(true);
-        toast.success('OTP sent!', { description: `Check your phone ${phone}` });
-      }
-    } catch {
-      toast.error('An unexpected error occurred');
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\s/g, '')}`;
+      const appVerifier = setupRecaptcha();
+      const result = await signInWithPhoneNumber(firebaseAuth, formattedPhone, appVerifier);
+      confirmationResultRef.current = result;
+      setOtpSent(true);
+      toast.success('OTP sent!', { description: `Check your phone ${formattedPhone}` });
+    } catch (error: any) {
+      console.error('Firebase OTP error:', error);
+      toast.error('Failed to send OTP', { description: error?.message || 'Please try again' });
+      // Reset recaptcha on error
+      recaptchaVerifierRef.current = null;
     }
 
     setIsLoading(false);
@@ -91,23 +110,38 @@ export const LoginForm: React.FC = () => {
       return;
     }
 
+    if (!confirmationResultRef.current) {
+      toast.error('Please request OTP first');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone: phone.startsWith('+') ? phone : `+91${phone}`,
-        token: otp,
-        type: 'sms',
+      // Verify OTP with Firebase
+      const firebaseResult = await confirmationResultRef.current.confirm(otp);
+      const idToken = await firebaseResult.user.getIdToken();
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\s/g, '')}`;
+
+      // Call edge function to create Supabase session
+      const { data, error } = await supabase.functions.invoke('firebase-phone-auth', {
+        body: { firebaseIdToken: idToken, phone: formattedPhone },
       });
 
-      if (error) {
-        toast.error('OTP verification failed', { description: error.message });
-      } else {
+      if (error || data?.error) {
+        toast.error('Login failed', { description: data?.error || error?.message });
+      } else if (data?.session) {
+        // Set the Supabase session
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
         toast.success('Welcome back!');
         navigate('/');
       }
-    } catch {
-      toast.error('An unexpected error occurred');
+    } catch (error: any) {
+      console.error('OTP verify error:', error);
+      toast.error('OTP verification failed', { description: error?.message || 'Invalid OTP' });
     }
 
     setIsLoading(false);
@@ -132,6 +166,8 @@ export const LoginForm: React.FC = () => {
   };
 
   return (
+    <>
+    <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
     <Card className="w-full max-w-md mx-auto glass-card">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-display text-center">Welcome Back</CardTitle>
@@ -321,5 +357,6 @@ export const LoginForm: React.FC = () => {
         </div>
       )}
     </Card>
+    </>
   );
 };
