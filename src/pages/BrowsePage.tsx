@@ -72,7 +72,7 @@ const BrowsePage: React.FC = () => {
     const { data } = await supabase
       .from('categories')
       .select('*')
-      .order('sort_order');
+      .order('name');
     setCategories(data || []);
 
     // Fetch video counts per category
