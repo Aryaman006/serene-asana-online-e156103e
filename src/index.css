@@ -56,9 +56,9 @@
     --forest: 35 40% 50%;
     --forest-light: 37 35% 62%;
     
-    /* Brand Light Gold - #FFD966 */
-    --gold: 45 100% 70%;
-    --gold-light: 48 90% 82%;
+    /* Brand Gold - darker for better readability */
+    --gold: 42 80% 45%;
+    --gold-light: 45 85% 60%;
     
     /* Soft Cream - #FFFCF7 */
     --cream: 38 100% 98%;
