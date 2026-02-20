@@ -2,3 +2,6 @@ project_id = "xoampivltwofgecadktc"
 
 [functions.process-referral-commission]
 verify_jwt = false
+
+[functions.firebase-phone-auth]
+verify_jwt = false
