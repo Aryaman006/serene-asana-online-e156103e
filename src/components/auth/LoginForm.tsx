@@ -176,36 +176,9 @@ export const LoginForm: React.FC = () => {
         </CardDescription>
       </CardHeader>
 
-      {/* Login method toggle */}
-      <div className="flex mx-6 mb-4 rounded-lg border border-border overflow-hidden">
-        <button
-          type="button"
-          onClick={() => { setLoginMethod('email'); setOtpSent(false); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            loginMethod === 'email'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted/50 text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Mail className="w-4 h-4" />
-          Email
-        </button>
-        <button
-          type="button"
-          onClick={() => { setLoginMethod('phone'); setOtpSent(false); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            loginMethod === 'phone'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted/50 text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Phone className="w-4 h-4" />
-          Phone
-        </button>
-      </div>
+      {/* Phone login hidden */}
 
-      {loginMethod === 'email' ? (
-        <form onSubmit={handleEmailSubmit}>
+      <form onSubmit={handleEmailSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -274,88 +247,6 @@ export const LoginForm: React.FC = () => {
             </p>
           </CardFooter>
         </form>
-      ) : (
-        <div>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+91 9876543210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={isLoading || otpSent}
-              />
-            </div>
-            {otpSent && (
-              <div className="space-y-2">
-                <Label htmlFor="otp">Enter OTP</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  disabled={isLoading}
-                  maxLength={6}
-                />
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            {!otpSent ? (
-              <Button
-                type="button"
-                className="w-full bg-gradient-warm hover:opacity-90 transition-opacity"
-                disabled={isLoading}
-                onClick={handleSendOtp}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending OTP...
-                  </>
-                ) : (
-                  'Send OTP'
-                )}
-              </Button>
-            ) : (
-              <div className="w-full space-y-2">
-                <Button
-                  type="button"
-                  className="w-full bg-gradient-warm hover:opacity-90 transition-opacity"
-                  disabled={isLoading}
-                  onClick={handleVerifyOtp}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify OTP'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-sm"
-                  onClick={() => { setOtpSent(false); setOtp(''); }}
-                >
-                  Resend OTP
-                </Button>
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground text-center">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </div>
-      )}
     </Card>
     </>
   );
