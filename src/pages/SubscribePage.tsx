@@ -184,21 +184,13 @@ const SubscribePage: React.FC = () => {
         throw new Error("Please log in to continue");
       }
 
-      // Create corporate subscription directly via verify-razorpay-payment with corporate flag
-      const verifyResponse = await supabase.functions.invoke("verify-razorpay-payment", {
-        body: {
-          corporate: true,
-          corporateId,
-          couponCode,
-          baseAmount: 0,
-          gstAmount: 0,
-          discountAmount: basePrice,
-          totalAmount: 0,
-        },
+      // Call dedicated corporate activation endpoint — completely bypasses Razorpay
+      const activateResponse = await supabase.functions.invoke("activate-corporate-subscription", {
+        body: { coupon_code: couponCode },
       });
 
-      if (verifyResponse.error) {
-        throw new Error(verifyResponse.error.message || "Failed to activate corporate subscription");
+      if (activateResponse.error || !activateResponse.data?.success) {
+        throw new Error(activateResponse.data?.error || "Failed to activate corporate subscription");
       }
 
       toast.success("Corporate plan activated! Welcome to Premium!");
