@@ -57,7 +57,7 @@ const SubscribePage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponId, setCouponId] = useState<string | null>(null);
 
-  const basePrice = 1; // Test price
+  const basePrice = 999; // Production price
   const gstRate = 0.05;
   const discountedPrice = basePrice - discount;
   const gstAmount = discountedPrice * gstRate;
