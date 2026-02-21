@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
- 
+
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,8 +23,8 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
@@ -32,24 +32,13 @@ serve(async (req) => {
       throw new Error("No authorization header");
     }
 
-    // Use anon key + user's auth header for token validation
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
     const token = authHeader.replace("Bearer ", "");
-    const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
-    if (claimsError || !data?.claims) {
-      console.error("Auth error:", claimsError?.message);
+    if (userError || !user) {
+      console.error("Auth error details:", JSON.stringify(userError));
       throw new Error("Unauthorized");
     }
-
-    const userId = data.claims.sub;
-    const userEmail = data.claims.email;
-
-    // Use service role client for DB operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { amount, couponCode } = await req.json();
 
@@ -91,7 +80,7 @@ serve(async (req) => {
 
     // Create Razorpay order
     const credentials = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
-    const shortUserId = userId.substring(0, 8);
+    const shortUserId = user.id.substring(0, 8);
     const receipt = `rcpt_${shortUserId}_${Date.now()}`;
     
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
@@ -105,7 +94,7 @@ serve(async (req) => {
         currency: "INR",
         receipt: receipt,
         notes: {
-          user_id: userId,
+          user_id: user.id,
           coupon_id: couponId,
           base_amount: baseAmount,
           gst_amount: gstAmount,
@@ -116,10 +105,12 @@ serve(async (req) => {
 
     if (!orderResponse.ok) {
        const statusCode = orderResponse.status;
+       const errorBody = await orderResponse.text();
        console.error("Order creation failed", {
          timestamp: new Date().toISOString(),
          errorType: "RAZORPAY_ORDER_ERROR",
          statusCode,
+         errorBody,
        });
        throw new Error("Failed to create payment order");
     }
@@ -130,7 +121,7 @@ serve(async (req) => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, phone")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single();
 
     return new Response(
@@ -141,7 +132,7 @@ serve(async (req) => {
         keyId: RAZORPAY_KEY_ID,
         prefill: {
           name: profile?.full_name || "",
-          email: userEmail || "",
+          email: user.email || "",
           contact: profile?.phone || "",
         },
         notes: {
@@ -160,6 +151,7 @@ serve(async (req) => {
      console.error("Order creation error", {
        timestamp: new Date().toISOString(),
        errorType: "ORDER_ERROR",
+       error: error instanceof Error ? error.message : String(error),
      });
      const errorMessage = error instanceof Error ? error.message : "An error occurred";
     return new Response(
