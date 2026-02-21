@@ -1,5 +1,5 @@
- import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
- import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
  
 // CORS headers
 const corsHeaders = {
@@ -38,12 +38,15 @@ serve(async (req) => {
     });
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
+    const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
-    if (userError || !user) {
-      console.error("Auth error:", userError?.message);
+    if (claimsError || !data?.claims) {
+      console.error("Auth error:", claimsError?.message);
       throw new Error("Unauthorized");
     }
+
+    const userId = data.claims.sub;
+    const userEmail = data.claims.email;
 
     // Use service role client for DB operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -88,7 +91,7 @@ serve(async (req) => {
 
     // Create Razorpay order
     const credentials = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
-    const shortUserId = user.id.substring(0, 8);
+    const shortUserId = userId.substring(0, 8);
     const receipt = `rcpt_${shortUserId}_${Date.now()}`;
     
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
@@ -102,7 +105,7 @@ serve(async (req) => {
         currency: "INR",
         receipt: receipt,
         notes: {
-          user_id: user.id,
+          user_id: userId,
           coupon_id: couponId,
           base_amount: baseAmount,
           gst_amount: gstAmount,
@@ -127,7 +130,7 @@ serve(async (req) => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, phone")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     return new Response(
@@ -138,7 +141,7 @@ serve(async (req) => {
         keyId: RAZORPAY_KEY_ID,
         prefill: {
           name: profile?.full_name || "",
-          email: user.email || "",
+          email: userEmail || "",
           contact: profile?.phone || "",
         },
         notes: {
