@@ -84,86 +84,8 @@ serve(async (req) => {
       couponCode,
     } = body;
 
-    // ===== CORPORATE SUBSCRIPTION FLOW =====
-    if (corporate === true && corporateId) {
-      // Re-validate corporate coupon server-side
-      const { data: corp } = await supabase
-        .from("corporates")
-        .select("*")
-        .eq("id", corporateId)
-        .eq("is_active", true)
-        .single();
-
-      if (!corp) {
-        throw new Error("Invalid corporate plan");
-      }
-
-      if (corp.expires_at && new Date(corp.expires_at) < new Date()) {
-        throw new Error("Corporate plan has expired");
-      }
-
-      // Verify email eligibility
-      const { data: member } = await supabase
-        .from("corporate_members")
-        .select("id")
-        .eq("corporate_id", corporateId)
-        .eq("email", user.email?.toLowerCase())
-        .single();
-
-      if (!member) {
-        throw new Error("Email not eligible for this corporate plan");
-      }
-
-      // Check max members
-      if (corp.max_members) {
-        const { count } = await supabase
-          .from("subscriptions")
-          .select("id", { count: "exact", head: true })
-          .eq("corporate_id", corporateId)
-          .eq("is_corporate", true)
-          .eq("status", "active");
-
-        if (count !== null && count >= corp.max_members) {
-          throw new Error("Corporate member limit reached");
-        }
-      }
-
-      const startsAt = new Date();
-      const expiresAt = new Date();
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-
-      const { error: subError } = await supabase
-        .from("subscriptions")
-        .update({
-          status: "active",
-          plan_name: "Corporate Yearly",
-          starts_at: startsAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          amount_paid: 0,
-          gst_amount: 0,
-          corporate_id: corporateId,
-          coupon_code: couponCode || corp.coupon_code,
-          is_corporate: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id);
-
-      if (subError) {
-        console.error("Corporate subscription error:", subError);
-        throw new Error("Failed to activate corporate subscription");
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Corporate subscription activated",
-          subscription: { status: "active", expiresAt: expiresAt.toISOString() },
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-
-    // ===== REGULAR PAYMENT FLOW =====
+    // ===== REGULAR PAYMENT FLOW ONLY =====
+    // Corporate subscriptions are handled by activate-corporate-subscription edge function
     // Verify signature
     const isValid = await verifySignature(
       razorpay_order_id,
