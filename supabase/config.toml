@@ -5,3 +5,15 @@ verify_jwt = false
 
 [functions.firebase-phone-auth]
 verify_jwt = false
+
+[functions.create-razorpay-order]
+verify_jwt = false
+
+[functions.verify-razorpay-payment]
+verify_jwt = false
+
+[functions.validate-coupon]
+verify_jwt = false
+
+[functions.award-yogic-points]
+verify_jwt = false
