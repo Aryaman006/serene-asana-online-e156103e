@@ -6,10 +6,11 @@ import { CategoryCard } from '@/components/videos/CategoryCard';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowRight, Play, Crown, Sparkles, Calendar, TrendingUp } from 'lucide-react';
+import { ArrowRight, Play, Crown, Sparkles, Calendar, TrendingUp, Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import heroImage from '@/assets/hero2.png';
+import { useVisitorTracker } from '@/hooks/useVisitorTracker';
 
 interface Category {
   id: string;
@@ -41,6 +42,7 @@ interface LiveSession {
 
 const HomePage: React.FC = () => {
   const { user, hasActiveSubscription } = useAuth();
+  const totalVisitors = useVisitorTracker();
   const [featuredCategories, setFeaturedCategories] = useState<Category[]>([]);
   const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<LiveSession[]>([]);
@@ -142,6 +144,15 @@ const HomePage: React.FC = () => {
               Premium yoga classes, live sessions, and personalized recommendations.
             </p>
             
+            {totalVisitors !== null && (
+              <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mt-4">
+                <Users className="w-4 h-4 text-gold" />
+                <span className="text-sm text-white/90">
+                  {totalVisitors.toLocaleString()} total visitors
+                </span>
+              </div>
+            )}
+
             <div className="mt-8 flex flex-wrap gap-4">
               {!user ? (
                 <>
