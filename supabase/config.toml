@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.award-yogic-points]
 verify_jwt = false
+
+[functions.validate-corporate-coupon]
+verify_jwt = false

@@ -110,6 +110,65 @@ export type Database = {
           },
         ]
       }
+      corporate_members: {
+        Row: {
+          corporate_id: string
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          corporate_id: string
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          corporate_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_members_corporate_id_fkey"
+            columns: ["corporate_id"]
+            isOneToOne: false
+            referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      corporates: {
+        Row: {
+          coupon_code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_members: number | null
+          name: string
+        }
+        Insert: {
+          coupon_code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_members?: number | null
+          name: string
+        }
+        Update: {
+          coupon_code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_members?: number | null
+          name?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           code: string
@@ -388,10 +447,13 @@ export type Database = {
       subscriptions: {
         Row: {
           amount_paid: number | null
+          corporate_id: string | null
+          coupon_code: string | null
           created_at: string
           expires_at: string | null
           gst_amount: number | null
           id: string
+          is_corporate: boolean | null
           payment_id: string | null
           plan_name: string | null
           starts_at: string | null
@@ -401,10 +463,13 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          corporate_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           expires_at?: string | null
           gst_amount?: number | null
           id?: string
+          is_corporate?: boolean | null
           payment_id?: string | null
           plan_name?: string | null
           starts_at?: string | null
@@ -414,10 +479,13 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          corporate_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           expires_at?: string | null
           gst_amount?: number | null
           id?: string
+          is_corporate?: boolean | null
           payment_id?: string | null
           plan_name?: string | null
           starts_at?: string | null
@@ -425,7 +493,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_corporate_id_fkey"
+            columns: ["corporate_id"]
+            isOneToOne: false
+            referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       videos: {
         Row: {
