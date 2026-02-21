@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.validate-corporate-coupon]
 verify_jwt = false
+
+[functions.admin-list-users]
+verify_jwt = false
