@@ -248,14 +248,18 @@ const VideoPlayerPage: React.FC = () => {
     }
   };
 
+  const lastSavedTimeRef = useRef<number>(0);
+
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       const current = videoRef.current.currentTime;
       setCurrentTime(current);
 
-      // Save progress every 10 seconds
-      if (Math.floor(current) % 10 === 0 && Math.floor(current) > 0) {
-        saveProgress(Math.floor(current));
+      // Save progress every 10 seconds (using ref to avoid duplicate saves)
+      const flooredCurrent = Math.floor(current);
+      if (flooredCurrent > 0 && flooredCurrent - lastSavedTimeRef.current >= 10) {
+        lastSavedTimeRef.current = flooredCurrent;
+        saveProgress(flooredCurrent);
       }
     }
   };
