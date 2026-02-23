@@ -48,7 +48,7 @@ const LiveClassesPage: React.FC = () => {
       const { data, error } = await supabase
         .from('live_sessions')
         .select('*')
-        .order('scheduled_at', { ascending: true });
+        .order('scheduled_at', { ascending: false });
       if (error) throw error;
       return data as LiveSession[];
     },
