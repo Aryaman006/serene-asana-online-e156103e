@@ -8,38 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-async function sendEmail(
-  smtpEmail: string,
-  smtpPassword: string,
-  to: string,
-  subject: string,
-  htmlBody: string
-) {
-  const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: {
-        username: smtpEmail,
-        password: smtpPassword,
-      },
-    },
-  });
-
-  await client.send({
-    from: smtpEmail,
-    to,
-    subject,
-    content: "auto",
-    html: htmlBody,
-  });
-
-  await client.close();
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -83,7 +51,7 @@ serve(async (req) => {
       );
     }
 
-    // Fetch ALL users from auth
+    // Fetch ALL users from auth (paginated)
     const allUsers: any[] = [];
     let page = 1;
     while (true) {
@@ -116,6 +84,20 @@ serve(async (req) => {
     for (const p of profiles || []) {
       profileMap.set(p.user_id, p.full_name || "Yogi");
     }
+
+    // Create a SINGLE SMTP connection for all emails
+    const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.gmail.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: smtpEmail,
+          password: smtpPassword,
+        },
+      },
+    });
 
     let totalNotified = 0;
     const errors: string[] = [];
@@ -167,7 +149,13 @@ serve(async (req) => {
         `;
 
         try {
-          await sendEmail(smtpEmail, smtpPassword, user.email, subject, html);
+          await client.send({
+            from: smtpEmail,
+            to: user.email,
+            subject,
+            content: "auto",
+            html,
+          });
           totalNotified++;
         } catch (emailError) {
           console.error(`Failed to email ${user.email}:`, emailError);
@@ -175,6 +163,9 @@ serve(async (req) => {
         }
       }
     }
+
+    // Close SMTP connection after all emails sent
+    await client.close();
 
     return new Response(
       JSON.stringify({
