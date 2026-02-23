@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.admin-list-users]
 verify_jwt = false
+
+[functions.send-session-notification]
+verify_jwt = false
