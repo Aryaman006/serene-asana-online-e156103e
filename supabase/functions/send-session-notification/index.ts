@@ -124,7 +124,7 @@ serve(async (req) => {
         const html = `
           <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f7f4; padding: 30px; border-radius: 12px;">
             <div style="text-align: center; margin-bottom: 20px;">
-              <h1 style="color: #5b4a3f; font-size: 24px; margin: 0;">🧘 PlayOga</h1>
+              <h1 style="color: #5b4a3f; font-size: 24px; margin: 0;">🧘 Playoga</h1>
             </div>
             <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
               <h2 style="color: #5b4a3f; margin-top: 0;">Namaste, ${name}!</h2>
@@ -143,7 +143,7 @@ serve(async (req) => {
               </div>
             </div>
             <p style="text-align: center; color: #aaa; font-size: 12px; margin-top: 20px;">
-              You're receiving this because you're a member of PlayOga.
+              You're receiving this because you're a member of Playoga.
             </p>
           </div>
         `;
