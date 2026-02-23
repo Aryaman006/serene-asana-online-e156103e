@@ -15,12 +15,8 @@ async function sendEmail(
   subject: string,
   htmlBody: string
 ) {
-  // Use Gmail SMTP via fetch to a mail-sending endpoint
-  // Since Deno edge functions can't use raw SMTP, we use the Gmail API via basic auth
-  // Alternative: use a simple SMTP library for Deno
-  
   const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-  
+
   const client = new SMTPClient({
     connection: {
       hostname: "smtp.gmail.com",
@@ -60,13 +56,10 @@ serve(async (req) => {
       throw new Error("SMTP credentials not configured");
     }
 
-    // Parse request body for optional session_id filter
-    let sessionId: string | null = null;
-    let minutesBefore = 30; // default: notify 30 mins before session
+    let minutesBefore = 30;
 
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
-      sessionId = body.session_id || null;
       minutesBefore = body.minutes_before || 30;
     }
 
@@ -74,18 +67,13 @@ serve(async (req) => {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + minutesBefore * 60 * 1000);
 
-    let sessionsQuery = supabase
+    const { data: sessions, error: sessionsError } = await supabase
       .from("live_sessions")
       .select("*")
       .eq("is_completed", false)
       .gte("scheduled_at", now.toISOString())
       .lte("scheduled_at", windowEnd.toISOString());
 
-    if (sessionId) {
-      sessionsQuery = sessionsQuery.eq("id", sessionId);
-    }
-
-    const { data: sessions, error: sessionsError } = await sessionsQuery;
     if (sessionsError) throw sessionsError;
 
     if (!sessions || sessions.length === 0) {
@@ -95,49 +83,44 @@ serve(async (req) => {
       );
     }
 
+    // Fetch ALL users from auth
+    const allUsers: any[] = [];
+    let page = 1;
+    while (true) {
+      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: 1000,
+      });
+      if (usersError) throw usersError;
+      if (!users || users.length === 0) break;
+      allUsers.push(...users);
+      if (users.length < 1000) break;
+      page++;
+    }
+
+    if (allUsers.length === 0) {
+      return new Response(
+        JSON.stringify({ message: "No users found", notified: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch all profiles for names
+    const userIds = allUsers.map((u: any) => u.id);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", userIds);
+
+    const profileMap = new Map<string, string>();
+    for (const p of profiles || []) {
+      profileMap.set(p.user_id, p.full_name || "Yogi");
+    }
+
     let totalNotified = 0;
     const errors: string[] = [];
 
     for (const session of sessions) {
-      // Get registered users for this session
-      const { data: registrations, error: regError } = await supabase
-        .from("live_session_registrations")
-        .select("user_id")
-        .eq("session_id", session.id);
-
-      if (regError) {
-        errors.push(`Failed to fetch registrations for session ${session.id}: ${regError.message}`);
-        continue;
-      }
-
-      if (!registrations || registrations.length === 0) continue;
-
-      const userIds = registrations.map((r: any) => r.user_id);
-
-      // Fetch user emails from auth
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-
-      if (usersError) {
-        errors.push(`Failed to fetch users: ${usersError.message}`);
-        continue;
-      }
-
-      const registeredUsers = users.filter((u: any) => userIds.includes(u.id));
-
-      // Fetch profiles for names
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", userIds);
-
-      const profileMap = new Map<string, string>();
-      for (const p of profiles || []) {
-        profileMap.set(p.user_id, p.full_name || "Yogi");
-      }
-
       const sessionDate = new Date(session.scheduled_at);
       const formattedDate = sessionDate.toLocaleDateString("en-IN", {
         weekday: "long",
@@ -151,9 +134,11 @@ serve(async (req) => {
         hour12: true,
       });
 
-      for (const user of registeredUsers) {
+      for (const user of allUsers) {
+        if (!user.email) continue;
+
         const name = profileMap.get(user.id) || "Yogi";
-        const subject = `🧘 Reminder: ${session.title} starts soon!`;
+        const subject = `🧘 Live Class Alert: ${session.title} starts in 30 minutes!`;
         const html = `
           <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f7f4; padding: 30px; border-radius: 12px;">
             <div style="text-align: center; margin-bottom: 20px;">
@@ -162,7 +147,7 @@ serve(async (req) => {
             <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
               <h2 style="color: #5b4a3f; margin-top: 0;">Namaste, ${name}!</h2>
               <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                Your live session <strong>"${session.title}"</strong> is starting soon!
+                A live yoga session <strong>"${session.title}"</strong> is starting in 30 minutes! Don't miss it! 🙏
               </p>
               <div style="background: #f0ebe4; padding: 16px; border-radius: 8px; margin: 16px 0;">
                 <p style="margin: 4px 0; color: #5b4a3f;"><strong>📅 Date:</strong> ${formattedDate}</p>
@@ -172,17 +157,17 @@ serve(async (req) => {
               </div>
               ${session.description ? `<p style="color: #888; font-size: 14px;">${session.description}</p>` : ""}
               <div style="text-align: center; margin-top: 24px;">
-                <a href="https://serene-asana-online.lovable.app/live" style="background: #5b4a3f; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold;">Join Session</a>
+                <a href="https://serene-asana-online.lovable.app/live" style="background: #5b4a3f; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold;">View Live Classes</a>
               </div>
             </div>
             <p style="text-align: center; color: #aaa; font-size: 12px; margin-top: 20px;">
-              You're receiving this because you registered for this session on PlayOga.
+              You're receiving this because you're a member of PlayOga.
             </p>
           </div>
         `;
 
         try {
-          await sendEmail(smtpEmail, smtpPassword, user.email!, subject, html);
+          await sendEmail(smtpEmail, smtpPassword, user.email, subject, html);
           totalNotified++;
         } catch (emailError) {
           console.error(`Failed to email ${user.email}:`, emailError);
@@ -196,6 +181,7 @@ serve(async (req) => {
         success: true,
         notified: totalNotified,
         sessions: sessions.length,
+        totalUsers: allUsers.length,
         errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
