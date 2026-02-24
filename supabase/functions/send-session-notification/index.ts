@@ -51,7 +51,25 @@ serve(async (req) => {
       );
     }
 
-    // Fetch ALL users from auth (paginated)
+    // Fetch subscribed user IDs (active and not expired)
+    const { data: activeSubscriptions, error: subError } = await supabase
+      .from("subscriptions")
+      .select("user_id")
+      .eq("status", "active")
+      .or("expires_at.is.null,expires_at.gt." + now.toISOString());
+
+    if (subError) throw subError;
+
+    if (!activeSubscriptions || activeSubscriptions.length === 0) {
+      return new Response(
+        JSON.stringify({ message: "No subscribed users found", notified: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const subscribedUserIds = [...new Set(activeSubscriptions.map((s: any) => s.user_id))];
+
+    // Fetch auth users for subscribed users only (paginated)
     const allUsers: any[] = [];
     let page = 1;
     while (true) {
@@ -61,19 +79,20 @@ serve(async (req) => {
       });
       if (usersError) throw usersError;
       if (!users || users.length === 0) break;
-      allUsers.push(...users);
+      const filtered = users.filter((u: any) => subscribedUserIds.includes(u.id));
+      allUsers.push(...filtered);
       if (users.length < 1000) break;
       page++;
     }
 
     if (allUsers.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No users found", notified: 0 }),
+        JSON.stringify({ message: "No subscribed users with email found", notified: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fetch all profiles for names
+    // Fetch profiles for names
     const userIds = allUsers.map((u: any) => u.id);
     const { data: profiles } = await supabase
       .from("profiles")
