@@ -45,7 +45,7 @@ const LiveClassesPage: React.FC = () => {
     },
   });
 
-  console.log(data);
+  console.log(sessions);
 
   const { data: registrations, refetch: refetchRegistrations } = useQuery({
     queryKey: ["my-registrations", user?.id],
