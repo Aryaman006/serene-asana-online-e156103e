@@ -123,16 +123,21 @@ serve(async (req) => {
 
     for (const session of sessions) {
       const sessionDate = new Date(session.scheduled_at);
-      const formattedDate = sessionDate.toLocaleDateString("en-IN", {
+      // Convert to IST (UTC+5:30) since Deno edge functions run in UTC
+      const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in ms
+      const istDate = new Date(sessionDate.getTime() + istOffset);
+      const formattedDate = istDate.toLocaleDateString("en-IN", {
         weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: "UTC", // already shifted to IST, use UTC to prevent double conversion
       });
-      const formattedTime = sessionDate.toLocaleTimeString("en-IN", {
+      const formattedTime = istDate.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
+        timeZone: "UTC", // already shifted to IST, use UTC to prevent double conversion
       });
 
       for (const user of allUsers) {
