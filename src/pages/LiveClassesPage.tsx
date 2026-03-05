@@ -140,10 +140,10 @@ const LiveClassesPage: React.FC = () => {
     const isPastSession = isSessionEnded(session);
 
     return (
-      <Card key={session.id} className="overflow-hidden">
+      <Card key={session.id} className="overflow-hidden flex flex-col">
         <div className="relative">
           <div
-            className="h-48 bg-cover bg-center"
+            className="h-36 sm:h-44 md:h-48 bg-cover bg-center"
             style={{
               backgroundImage: session.thumbnail_url
                 ? `url(${session.thumbnail_url})`
@@ -167,13 +167,13 @@ const LiveClassesPage: React.FC = () => {
             </div>
           )}
         </div>
-        <CardContent className="p-5">
-          <h3 className="font-display text-lg font-semibold mb-2 line-clamp-1">{session.title}</h3>
+        <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+          <h3 className="font-display text-base sm:text-lg font-semibold mb-1 sm:mb-2 line-clamp-1">{session.title}</h3>
           {session.description && (
-            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{session.description}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">{session.description}</p>
           )}
 
-          <div className="space-y-2 text-sm text-muted-foreground mb-4">
+          <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
               <span>{isToday(sessionDate) ? "Today" : format(sessionDate, "EEE, MMM d, yyyy")}</span>
@@ -193,7 +193,7 @@ const LiveClassesPage: React.FC = () => {
           </div>
 
           {!isPastSession && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-auto">
               {canJoin ? (
                 <Button asChild className="flex-1 bg-gradient-warm">
                   <a href={session.stream_url || "#"} target="_blank" rel="noopener noreferrer">
@@ -240,10 +240,10 @@ const LiveClassesPage: React.FC = () => {
 
   return (
     <UserLayout>
-      <div className="content-container py-8">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold mb-2">Live Classes</h1>
-          <p className="text-muted-foreground">Join live yoga sessions with our expert instructors</p>
+      <div className="content-container py-4 sm:py-8 px-3 sm:px-4">
+        <div className="mb-5 sm:mb-8">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Live Classes</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Join live yoga sessions with our expert instructors</p>
         </div>
 
         {isLoading ? (
@@ -259,15 +259,15 @@ const LiveClassesPage: React.FC = () => {
                   <Radio className="w-5 h-5 text-red-500" />
                   Live Now
                 </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{liveSessions.map(renderSession)}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{liveSessions.map(renderSession)}</div>
               </section>
             )}
 
             {/* Upcoming Sessions */}
             <section className="mb-10">
-              <h2 className="font-display text-xl font-semibold mb-4">Upcoming Sessions</h2>
+              <h2 className="font-display text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Upcoming Sessions</h2>
               {upcomingSessions && upcomingSessions.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{upcomingSessions.map(renderSession)}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{upcomingSessions.map(renderSession)}</div>
               ) : (
                 <Card className="p-8 text-center">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -280,8 +280,8 @@ const LiveClassesPage: React.FC = () => {
             {/* Past Sessions */}
             {pastSessions && pastSessions.length > 0 && (
               <section>
-                <h2 className="font-display text-xl font-semibold mb-4 text-muted-foreground">Past Sessions</h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60">
+                <h2 className="font-display text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-muted-foreground">Past Sessions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 opacity-60">
                   {pastSessions.slice(0, 6).map(renderSession)}
                 </div>
               </section>
@@ -291,10 +291,10 @@ const LiveClassesPage: React.FC = () => {
 
         {/* Premium CTA */}
         {!hasActiveSubscription && (
-          <div className="mt-12 p-8 rounded-3xl bg-gradient-to-r from-charcoal to-terracotta-dark text-white text-center">
-            <Crown className="w-10 h-10 mx-auto mb-4 text-gold" />
-            <h3 className="font-display text-2xl font-bold mb-2">Unlock All Live Sessions</h3>
-            <p className="text-white/70 mb-6 max-w-md mx-auto">
+          <div className="mt-8 sm:mt-12 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-charcoal to-terracotta-dark text-white text-center">
+            <Crown className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-3 sm:mb-4 text-gold" />
+            <h3 className="font-display text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Unlock All Live Sessions</h3>
+            <p className="text-white/70 mb-4 sm:mb-6 max-w-md mx-auto text-sm sm:text-base">
               Get access to exclusive premium live classes with our top instructors
             </p>
             <Button asChild size="lg" className="bg-white text-charcoal hover:bg-white/90">
