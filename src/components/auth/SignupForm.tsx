@@ -21,7 +21,8 @@ export const SignupForm: React.FC = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const referralCode = searchParams.get('ref');
+  const refFromUrl = searchParams.get('ref') || '';
+  const [referralCode, setReferralCode] = useState(refFromUrl);
 
   const passwordsMatch = password === confirmPassword;
 
@@ -52,13 +53,13 @@ export const SignupForm: React.FC = () => {
         description: error.message,
       });
     } else {
-      // Process referral if referral code exists
-      if (referralCode) {
+      // Process referral if referral code exists (from URL or manual input)
+      if (referralCode.trim()) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             await supabase.rpc('process_referral', {
-              _referral_code: referralCode,
+              _referral_code: referralCode.trim(),
               _referred_user_id: session.user.id,
             });
           }
@@ -162,6 +163,20 @@ export const SignupForm: React.FC = () => {
             {confirmTouched && confirmPassword.length > 0 && !passwordsMatch && (
               <p className="text-xs text-destructive">Passwords do not match</p>
             )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="referralCode">Referral Code (optional)</Label>
+            <Input
+              id="referralCode"
+              type="text"
+              placeholder="Enter referral code"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
+              disabled={isLoading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Have a friend's referral code? Enter it here to connect your accounts.
+            </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
