@@ -177,7 +177,7 @@ serve(async (req) => {
             from: smtpEmail,
             to: user.email,
             subject,
-            content: "auto",
+            // content: "auto",
             html,
           });
           totalNotified++;
