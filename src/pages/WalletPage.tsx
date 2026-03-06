@@ -414,16 +414,58 @@ const WalletPage: React.FC = () => {
                 you earn ₹50 in your wallet!
               </p>
               {referralLink ? (
-                <>
-                  <div className="flex gap-2">
-                    <Input
-                      value={referralLink}
-                      readOnly
-                      className="bg-background font-mono text-sm"
-                    />
-                    <Button onClick={copyReferralLink} variant="outline" className="shrink-0">
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </Button>
+  <>
+    {/* Referral Link */}
+    <div className="flex gap-2">
+      <Input
+        value={referralLink}
+        readOnly
+        className="bg-background font-mono text-sm"
+      />
+      <Button onClick={copyReferralLink} variant="outline" className="shrink-0">
+        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+      </Button>
+      <Button
+        onClick={() => {
+          if (navigator.share) {
+            navigator.share({
+              title: 'Join PLAYoga!',
+              text: 'Start your yoga journey with PLAYoga. Use my referral link to sign up!',
+              url: referralLink,
+            });
+          } else {
+            copyReferralLink();
+          }
+        }}
+        variant="outline"
+        className="shrink-0"
+      >
+        <Share2 className="w-4 h-4" />
+      </Button>
+    </div>
+
+    {/* OR Divider */}
+    <div className="text-center text-sm text-muted-foreground my-3">
+      OR use this referral code
+    </div>
+
+    {/* Referral Code */}
+    <div className="flex gap-2">
+      <Input
+        value={profile?.referral_code || ''}
+        readOnly
+        className="bg-background font-mono text-sm text-center tracking-widest font-semibold"
+      />
+      <Button
+        variant="outline"
+        onClick={() => {
+          navigator.clipboard.writeText(profile?.referral_code || '');
+          toast.success('Referral code copied!');
+        }}
+      >
+        <Copy className="w-4 h-4" />
+      </Button>
+    </div>
                     <Button
                       onClick={() => {
                         if (navigator.share) {
