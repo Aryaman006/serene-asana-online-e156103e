@@ -409,96 +409,65 @@ const WalletPage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-  <p className="text-muted-foreground mb-4">
-    Share your referral link with friends. When they subscribe for the first time,
-    you earn ₹50 in your wallet!
-  </p>
-
-  {referralLink ? (
-    <>
-      {/* Referral Link */}
-      <div className="flex gap-2">
-        <Input
-          value={referralLink}
-          readOnly
-          className="bg-background font-mono text-sm"
-        />
-
-        <Button onClick={copyReferralLink} variant="outline" className="shrink-0">
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-        </Button>
-
-        <Button
-          onClick={() => {
-            if (navigator.share) {
-              navigator.share({
-                title: "Join PLAYoga!",
-                text: "Start your yoga journey with PLAYoga. Use my referral link to sign up!",
-                url: referralLink,
-              });
-            } else {
-              copyReferralLink();
-            }
-          }}
-          variant="outline"
-          className="shrink-0"
-        >
-          <Share2 className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* OR Divider */}
-      <div className="text-center text-sm text-muted-foreground my-3">
-        OR use this referral code
-      </div>
-
-      {/* Referral Code */}
-      <div className="flex gap-2">
-        <Input
-          value={profile?.referral_code || ""}
-          readOnly
-          className="bg-background font-mono text-sm text-center tracking-widest font-semibold"
-        />
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            navigator.clipboard.writeText(profile?.referral_code || "");
-            toast.success("Referral code copied!");
-          }}
-        >
-          <Copy className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Referral Stats */}
-      {referrals && referrals.length > 0 && (
-        <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Users className="w-4 h-4" />
-            {referrals.length} referral{referrals.length !== 1 ? "s" : ""}
-          </span>
-
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="w-4 h-4 text-success" />
-            {referrals.filter((r) => r.status === "completed").length} converted
-          </span>
-        </div>
-      )}
-    </>
-  ) : (
-    <Button
-      onClick={() => generateCodeMutation.mutate()}
-      disabled={generateCodeMutation.isPending}
-      className="bg-gradient-warm hover:opacity-90"
-    >
-      {generateCodeMutation.isPending ? (
-        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-      ) : null}
-      Generate My Referral Link
-    </Button>
-  )}
-</CardContent>
+              <p className="text-muted-foreground mb-4">
+                Share your referral link with friends. When they subscribe for the first time, 
+                you earn ₹50 in your wallet!
+              </p>
+              {referralLink ? (
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      value={referralLink}
+                      readOnly
+                      className="bg-background font-mono text-sm"
+                    />
+                    <Button onClick={copyReferralLink} variant="outline" className="shrink-0">
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: 'Join PLAYoga!',
+                            text: 'Start your yoga journey with PLAYoga. Use my referral link to sign up!',
+                            url: referralLink,
+                          });
+                        } else {
+                          copyReferralLink();
+                        }
+                      }}
+                      variant="outline"
+                      className="shrink-0"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {referrals && referrals.length > 0 && (
+                    <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {referrals.length} referral{referrals.length !== 1 ? 's' : ''}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-success" />
+                        {referrals.filter(r => r.status === 'completed').length} converted
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Button
+                  onClick={() => generateCodeMutation.mutate()}
+                  disabled={generateCodeMutation.isPending}
+                  className="bg-gradient-warm hover:opacity-90"
+                >
+                  {generateCodeMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  Generate My Referral Link
+                </Button>
+              )}
+            </CardContent>
           </Card>
 
           {/* Tabs for Commissions, Referrals, Withdrawals */}

@@ -69,7 +69,6 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const body = await req.json();
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
@@ -78,14 +77,9 @@ serve(async (req) => {
       baseAmount,
       gstAmount,
       discountAmount,
-      totalAmount,
-      corporate,
-      corporateId,
-      couponCode,
-    } = body;
+      totalAmount
+    } = await req.json();
 
-    // ===== REGULAR PAYMENT FLOW ONLY =====
-    // Corporate subscriptions are handled by activate-corporate-subscription edge function
     // Verify signature
     const isValid = await verifySignature(
       razorpay_order_id,

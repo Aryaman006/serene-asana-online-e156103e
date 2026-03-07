@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Crown, Check, Sparkles, Video, Calendar, Shield, ArrowRight, Loader2, Building2 } from "lucide-react";
+import { Crown, Check, Sparkles, Video, Calendar, Shield, ArrowRight, Loader2 } from "lucide-react";
 
 declare global {
   interface Window {
@@ -57,16 +57,11 @@ const SubscribePage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponId, setCouponId] = useState<string | null>(null);
 
-  // Corporate coupon state
-  const [isCorporate, setIsCorporate] = useState(false);
-  const [corporateId, setCorporateId] = useState<string | null>(null);
-  const [corporateName, setCorporateName] = useState<string | null>(null);
-
   const basePrice = 999; // Production price
   const gstRate = 0.05;
-  const discountedPrice = isCorporate ? 0 : basePrice - discount;
-  const gstAmount = isCorporate ? 0 : discountedPrice * gstRate;
-  const totalAmount = isCorporate ? 0 : discountedPrice + gstAmount;
+  const discountedPrice = basePrice - discount;
+  const gstAmount = discountedPrice * gstRate;
+  const totalAmount = discountedPrice + gstAmount;
 
   const features = [
     { icon: Video, text: "Unlimited access to all premium videos" },
@@ -106,8 +101,12 @@ const SubscribePage: React.FC = () => {
           return;
         }
 
+        // 🔥 Force refresh user
         await supabase.auth.getUser();
+
         await refreshSubscriptionStatus();
+
+        // Remove tokens from URL
         navigate("/subscribe", { replace: true });
       } catch (error) {
         console.error("Auto login failed:", error);
@@ -116,36 +115,17 @@ const SubscribePage: React.FC = () => {
 
     autoLogin();
   }, [location.search]);
+  useEffect(() => {
+    console.log("User:", user);
+  }, [user]);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
+
     setIsApplyingCoupon(true);
 
-    // Reset corporate state
-    setIsCorporate(false);
-    setCorporateId(null);
-    setCorporateName(null);
-    setDiscount(0);
-    setCouponId(null);
-
     try {
-      // Try corporate coupon first
-      if (user?.email) {
-        const corpResponse = await supabase.functions.invoke("validate-corporate-coupon", {
-          body: { coupon_code: couponCode, user_email: user.email },
-        });
-
-        if (!corpResponse.error && corpResponse.data?.valid) {
-          setIsCorporate(true);
-          setCorporateId(corpResponse.data.corporate_id);
-          setCorporateName(corpResponse.data.corporate_name);
-          toast.success(`Corporate plan applied — ${corpResponse.data.corporate_name}`);
-          setIsApplyingCoupon(false);
-          return;
-        }
-      }
-
-      // Fall back to regular coupon validation
+      // Call edge function to validate coupon securely
       const response = await supabase.functions.invoke("validate-coupon", {
         body: { code: couponCode, baseAmount: basePrice },
       });
@@ -174,44 +154,9 @@ const SubscribePage: React.FC = () => {
     setIsApplyingCoupon(false);
   };
 
-  const handleCorporateSubscribe = async () => {
-    if (!user || !corporateId) return;
-    setIsProcessing(true);
-
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.access_token) {
-        throw new Error("Please log in to continue");
-      }
-
-      // Call dedicated corporate activation endpoint — completely bypasses Razorpay
-      const activateResponse = await supabase.functions.invoke("activate-corporate-subscription", {
-        body: { coupon_code: couponCode },
-      });
-
-      if (activateResponse.error || !activateResponse.data?.success) {
-        throw new Error(activateResponse.data?.error || "Failed to activate corporate subscription");
-      }
-
-      toast.success("Corporate plan activated! Welcome to Premium!");
-      await refreshSubscriptionStatus();
-      navigate("/browse");
-    } catch (err) {
-      console.error("Corporate subscription error:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to activate corporate plan");
-    }
-    setIsProcessing(false);
-  };
-
   const handleSubscribe = async () => {
     if (!user) {
       navigate("/login", { state: { from: location } });
-      return;
-    }
-
-    // Corporate flow — no payment needed
-    if (isCorporate) {
-      await handleCorporateSubscribe();
       return;
     }
 
@@ -257,6 +202,7 @@ const SubscribePage: React.FC = () => {
         },
         handler: async (response: RazorpayResponse) => {
           try {
+            // Verify payment
             const verifyResponse = await supabase.functions.invoke("verify-razorpay-payment", {
               body: {
                 razorpay_order_id: response.razorpay_order_id,
@@ -368,33 +314,13 @@ const SubscribePage: React.FC = () => {
 
             {/* Pricing Card */}
             <div className="bg-gradient-to-br from-charcoal to-terracotta-dark rounded-3xl p-8 text-white">
-              {/* Corporate Banner */}
-              {isCorporate && (
-                <div className="mb-6 p-4 rounded-2xl bg-white/10 border border-white/20 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <Building2 className="w-5 h-5 text-gold" />
-                    <span className="font-semibold text-gold">Corporate Plan Applied</span>
-                  </div>
-                  <p className="text-sm text-white/70">{corporateName}</p>
-                </div>
-              )}
-
               <div className="text-center mb-8">
                 <span className="text-sm text-white/70">Yearly Plan</span>
                 <div className="mt-2">
-                  {isCorporate ? (
-                    <>
-                      <span className="text-2xl font-display line-through text-white/40">₹{basePrice}</span>
-                      <span className="text-5xl font-display font-bold ml-3 text-gold">FREE</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-5xl font-display font-bold">₹{discountedPrice}</span>
-                      <span className="text-white/70">/year</span>
-                    </>
-                  )}
+                  <span className="text-5xl font-display font-bold">₹{discountedPrice}</span>
+                  <span className="text-white/70">/year</span>
                 </div>
-                {!isCorporate && discount > 0 && <div className="mt-2 text-sm text-gold">You save ₹{discount}!</div>}
+                {discount > 0 && <div className="mt-2 text-sm text-gold">You save ₹{discount}!</div>}
               </div>
 
               {/* Coupon Input */}
@@ -408,13 +334,12 @@ const SubscribePage: React.FC = () => {
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
                     placeholder="Enter code"
-                    disabled={isCorporate}
                     className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                   />
                   <Button
                     variant="outline"
                     onClick={applyCoupon}
-                    disabled={isApplyingCoupon || isCorporate}
+                    disabled={isApplyingCoupon}
                     className="border-white bg-white/20 text-white hover:bg-white/30 font-medium"
                   >
                     {isApplyingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
@@ -423,28 +348,26 @@ const SubscribePage: React.FC = () => {
               </div>
 
               {/* Price Breakdown */}
-              {!isCorporate && (
-                <div className="space-y-2 text-sm mb-6">
-                  <div className="flex justify-between text-white/70">
-                    <span>Base Price</span>
-                    <span>₹{basePrice}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between text-gold">
-                      <span>Coupon Discount</span>
-                      <span>-₹{discount}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-white/70">
-                    <span>GST (5%)</span>
-                    <span>₹{gstAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t border-white/20 pt-2 flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>₹{totalAmount.toFixed(2)}</span>
-                  </div>
+              <div className="space-y-2 text-sm mb-6">
+                <div className="flex justify-between text-white/70">
+                  <span>Base Price</span>
+                  <span>₹{basePrice}</span>
                 </div>
-              )}
+                {discount > 0 && (
+                  <div className="flex justify-between text-gold">
+                    <span>Coupon Discount</span>
+                    <span>-₹{discount}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-white/70">
+                  <span>GST (5%)</span>
+                  <span>₹{gstAmount.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-white/20 pt-2 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>₹{totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
 
               <Button
                 onClick={handleSubscribe}
@@ -456,11 +379,6 @@ const SubscribePage: React.FC = () => {
                   <>
                     <Loader2 className="mr-2 w-5 h-5 animate-spin" />
                     Processing...
-                  </>
-                ) : isCorporate ? (
-                  <>
-                    Activate Corporate Plan
-                    <ArrowRight className="ml-2 w-5 h-5" />
                   </>
                 ) : (
                   <>

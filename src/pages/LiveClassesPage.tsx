@@ -1,15 +1,24 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { UserLayout } from "@/components/layout/UserLayout";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { format, isPast, isFuture, isToday, addMinutes } from "date-fns";
-import { Calendar, Clock, Users, Play, Bell, Crown, Loader2, Radio } from "lucide-react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { UserLayout } from '@/components/layout/UserLayout';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { format, isPast, isFuture, isToday, addMinutes } from 'date-fns';
+import {
+  Calendar,
+  Clock,
+  Users,
+  Play,
+  Bell,
+  Crown,
+  Loader2,
+  Radio,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface LiveSession {
   id: string;
@@ -34,27 +43,25 @@ const LiveClassesPage: React.FC = () => {
   const { user, hasActiveSubscription } = useAuth();
 
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["live-sessions"],
+    queryKey: ['live-sessions'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("live_sessions")
-        .select("*")
-        .order("scheduled_at", { ascending: false });
+        .from('live_sessions')
+        .select('*')
+        .order('scheduled_at', { ascending: true });
       if (error) throw error;
       return data as LiveSession[];
     },
   });
 
-  console.log(sessions);
-
   const { data: registrations, refetch: refetchRegistrations } = useQuery({
-    queryKey: ["my-registrations", user?.id],
+    queryKey: ['my-registrations', user?.id],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
-        .from("live_session_registrations")
-        .select("session_id")
-        .eq("user_id", user.id);
+        .from('live_session_registrations')
+        .select('session_id')
+        .eq('user_id', user.id);
       if (error) throw error;
       return data as Registration[];
     },
@@ -65,34 +72,34 @@ const LiveClassesPage: React.FC = () => {
 
   const handleRegister = async (sessionId: string, isPremium: boolean | null) => {
     if (!user) {
-      toast.error("Please log in to register");
+      toast.error('Please log in to register');
       return;
     }
 
     if (isPremium && !hasActiveSubscription) {
-      toast.error("Premium subscription required for this session");
+      toast.error('Premium subscription required for this session');
       return;
     }
 
     try {
-      const { error } = await supabase.from("live_session_registrations").insert({
+      const { error } = await supabase.from('live_session_registrations').insert({
         session_id: sessionId,
         user_id: user.id,
       });
 
       if (error) {
-        if (error.code === "23505") {
-          toast.info("Already registered for this session");
+        if (error.code === '23505') {
+          toast.info('Already registered for this session');
         } else {
           throw error;
         }
       } else {
-        toast.success("Registered successfully!");
+        toast.success('Registered successfully!');
         refetchRegistrations();
       }
     } catch (err) {
-      console.error("Registration error:", err);
-      toast.error("Failed to register");
+      console.error('Registration error:', err);
+      toast.error('Failed to register');
     }
   };
 
@@ -101,17 +108,17 @@ const LiveClassesPage: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from("live_session_registrations")
+        .from('live_session_registrations')
         .delete()
-        .eq("session_id", sessionId)
-        .eq("user_id", user.id);
+        .eq('session_id', sessionId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
-      toast.success("Unregistered from session");
+      toast.success('Unregistered from session');
       refetchRegistrations();
     } catch (err) {
-      console.error("Unregister error:", err);
-      toast.error("Failed to unregister");
+      console.error('Unregister error:', err);
+      toast.error('Failed to unregister');
     }
   };
 
@@ -128,7 +135,9 @@ const LiveClassesPage: React.FC = () => {
     return isPast(sessionStart) && !isPast(sessionEnd) && !session.is_completed;
   };
 
-  const upcomingSessions = sessions?.filter((s) => !s.is_completed && isFuture(new Date(s.scheduled_at)));
+  const upcomingSessions = sessions?.filter(
+    (s) => !s.is_completed && isFuture(new Date(s.scheduled_at))
+  );
   const liveSessions = sessions?.filter((s) => s.is_live || isSessionInProgress(s));
   const pastSessions = sessions?.filter((s) => isSessionEnded(s));
 
@@ -140,21 +149,21 @@ const LiveClassesPage: React.FC = () => {
     const isPastSession = isSessionEnded(session);
 
     return (
-      <Card key={session.id} className="overflow-hidden flex flex-col">
+      <Card key={session.id} className="overflow-hidden">
         <div className="relative">
           <div
-            className="h-36 sm:h-44 md:h-48 bg-cover bg-center"
+            className="h-48 bg-cover bg-center"
             style={{
               backgroundImage: session.thumbnail_url
                 ? `url(${session.thumbnail_url})`
-                : "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-foreground)))",
+                : 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-foreground)))',
             }}
           />
           {(session.is_live || inProgress) && (
             <div className="absolute top-3 left-3">
               <Badge className="bg-red-500 text-white animate-pulse">
                 <Radio className="w-3 h-3 mr-1" />
-                {session.is_live ? "LIVE NOW" : "IN PROGRESS"}
+                {session.is_live ? 'LIVE NOW' : 'IN PROGRESS'}
               </Badge>
             </div>
           )}
@@ -167,21 +176,29 @@ const LiveClassesPage: React.FC = () => {
             </div>
           )}
         </div>
-        <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-          <h3 className="font-display text-base sm:text-lg font-semibold mb-1 sm:mb-2 line-clamp-1">{session.title}</h3>
+        <CardContent className="p-5">
+          <h3 className="font-display text-lg font-semibold mb-2 line-clamp-1">
+            {session.title}
+          </h3>
           {session.description && (
-            <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">{session.description}</p>
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+              {session.description}
+            </p>
           )}
 
-          <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
+          <div className="space-y-2 text-sm text-muted-foreground mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              <span>{isToday(sessionDate) ? "Today" : format(sessionDate, "EEE, MMM d, yyyy")}</span>
+              <span>
+                {isToday(sessionDate)
+                  ? 'Today'
+                  : format(sessionDate, 'EEE, MMM d, yyyy')}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               <span>
-                {format(sessionDate, "h:mm a")} ({session.duration_minutes || 60} min)
+                {format(sessionDate, 'h:mm a')} ({session.duration_minutes || 60} min)
               </span>
             </div>
             {session.instructor_name && (
@@ -193,16 +210,20 @@ const LiveClassesPage: React.FC = () => {
           </div>
 
           {!isPastSession && (
-            <div className="flex gap-2 mt-auto">
+            <div className="flex gap-2">
               {canJoin ? (
                 <Button asChild className="flex-1 bg-gradient-warm">
-                  <a href={session.stream_url || "#"} target="_blank" rel="noopener noreferrer">
+                  <a href={session.stream_url || '#'} target="_blank" rel="noopener noreferrer">
                     <Play className="w-4 h-4 mr-2" />
                     Join Now
                   </a>
                 </Button>
               ) : isRegistered ? (
-                <Button variant="outline" className="flex-1" onClick={() => handleUnregister(session.id)}>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleUnregister(session.id)}
+                >
                   <Bell className="w-4 h-4 mr-2" />
                   Registered
                 </Button>
@@ -240,10 +261,12 @@ const LiveClassesPage: React.FC = () => {
 
   return (
     <UserLayout>
-      <div className="content-container py-4 sm:py-8 px-3 sm:px-4">
-        <div className="mb-5 sm:mb-8">
-          <h1 className="font-display text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Live Classes</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Join live yoga sessions with our expert instructors</p>
+      <div className="content-container py-8">
+        <div className="mb-8">
+          <h1 className="font-display text-3xl font-bold mb-2">Live Classes</h1>
+          <p className="text-muted-foreground">
+            Join live yoga sessions with our expert instructors
+          </p>
         </div>
 
         {isLoading ? (
@@ -259,20 +282,30 @@ const LiveClassesPage: React.FC = () => {
                   <Radio className="w-5 h-5 text-red-500" />
                   Live Now
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{liveSessions.map(renderSession)}</div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {liveSessions.map(renderSession)}
+                </div>
               </section>
             )}
 
             {/* Upcoming Sessions */}
             <section className="mb-10">
-              <h2 className="font-display text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Upcoming Sessions</h2>
+              <h2 className="font-display text-xl font-semibold mb-4">
+                Upcoming Sessions
+              </h2>
               {upcomingSessions && upcomingSessions.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{upcomingSessions.map(renderSession)}</div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {upcomingSessions.map(renderSession)}
+                </div>
               ) : (
                 <Card className="p-8 text-center">
                   <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No upcoming sessions scheduled.</p>
-                  <p className="text-sm text-muted-foreground mt-1">Check back soon for new live classes!</p>
+                  <p className="text-muted-foreground">
+                    No upcoming sessions scheduled.
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Check back soon for new live classes!
+                  </p>
                 </Card>
               )}
             </section>
@@ -280,8 +313,10 @@ const LiveClassesPage: React.FC = () => {
             {/* Past Sessions */}
             {pastSessions && pastSessions.length > 0 && (
               <section>
-                <h2 className="font-display text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-muted-foreground">Past Sessions</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 opacity-60">
+                <h2 className="font-display text-xl font-semibold mb-4 text-muted-foreground">
+                  Past Sessions
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-60">
                   {pastSessions.slice(0, 6).map(renderSession)}
                 </div>
               </section>
@@ -291,10 +326,12 @@ const LiveClassesPage: React.FC = () => {
 
         {/* Premium CTA */}
         {!hasActiveSubscription && (
-          <div className="mt-8 sm:mt-12 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-charcoal to-terracotta-dark text-white text-center">
-            <Crown className="w-8 h-8 sm:w-10 sm:h-10 mx-auto mb-3 sm:mb-4 text-gold" />
-            <h3 className="font-display text-xl sm:text-2xl font-bold mb-1 sm:mb-2">Unlock All Live Sessions</h3>
-            <p className="text-white/70 mb-4 sm:mb-6 max-w-md mx-auto text-sm sm:text-base">
+          <div className="mt-12 p-8 rounded-3xl bg-gradient-to-r from-charcoal to-terracotta-dark text-white text-center">
+            <Crown className="w-10 h-10 mx-auto mb-4 text-gold" />
+            <h3 className="font-display text-2xl font-bold mb-2">
+              Unlock All Live Sessions
+            </h3>
+            <p className="text-white/70 mb-6 max-w-md mx-auto">
               Get access to exclusive premium live classes with our top instructors
             </p>
             <Button asChild size="lg" className="bg-white text-charcoal hover:bg-white/90">

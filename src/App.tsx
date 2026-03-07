@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { NotificationInitializer } from "@/components/NotificationInitializer";
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -36,7 +35,6 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
-          <NotificationInitializer />
           <Routes>
             {/* Public Routes (auth pages only) */}
             <Route path="/login" element={<LoginPage />} />

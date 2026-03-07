@@ -134,7 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
 
-      // Phone is already stored in user_metadata via signUp options above
+      // If signup succeeded and we have a session, update phone on the user
+      if (!error && data.session && formattedPhone) {
+        await supabase.auth.updateUser({ phone: formattedPhone });
+      }
 
       return { error };
     } catch (error) {
