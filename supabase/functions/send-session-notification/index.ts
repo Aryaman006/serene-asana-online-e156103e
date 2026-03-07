@@ -4,9 +4,59 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Get OAuth2 access token from Firebase service account
+async function getAccessToken(serviceAccount: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = btoa(JSON.stringify({
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  }));
+
+  const unsignedToken = `${header}.${payload}`;
+
+  // Import the private key
+  const pemContents = serviceAccount.private_key
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
+  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const signedToken = `${unsignedToken}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${signedToken}`,
+  });
+
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+  return tokenData.access_token;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,16 +66,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const smtpEmail = Deno.env.get("SMTP_EMAIL")!;
-    const smtpPassword = Deno.env.get("SMTP_APP_PASSWORD")!;
+    const firebaseServiceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    if (!smtpEmail || !smtpPassword) {
-      throw new Error("SMTP credentials not configured");
-    }
+    const serviceAccount = JSON.parse(firebaseServiceAccountJson);
+    const projectId = serviceAccount.project_id;
 
     let minutesBefore = 30;
-
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
       minutesBefore = body.minutes_before || 30;
@@ -69,134 +116,86 @@ serve(async (req) => {
 
     const subscribedUserIds = [...new Set(activeSubscriptions.map((s: any) => s.user_id))];
 
-    // Fetch auth users for subscribed users only (paginated)
-    const allUsers: any[] = [];
-    let page = 1;
-    while (true) {
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({
-        page,
-        perPage: 1000,
-      });
-      if (usersError) throw usersError;
-      if (!users || users.length === 0) break;
-      const filtered = users.filter((u: any) => subscribedUserIds.includes(u.id));
-      allUsers.push(...filtered);
-      if (users.length < 1000) break;
-      page++;
-    }
+    // Fetch device tokens for subscribed users
+    const { data: tokens, error: tokensError } = await supabase
+      .from("device_tokens")
+      .select("token, user_id")
+      .in("user_id", subscribedUserIds);
 
-    if (allUsers.length === 0) {
+    if (tokensError) throw tokensError;
+
+    if (!tokens || tokens.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No subscribed users with email found", notified: 0 }),
+        JSON.stringify({ message: "No device tokens found for subscribed users", notified: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fetch profiles for names
-    const userIds = allUsers.map((u: any) => u.id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, full_name")
-      .in("user_id", userIds);
-
-    const profileMap = new Map<string, string>();
-    for (const p of profiles || []) {
-      profileMap.set(p.user_id, p.full_name || "Yogi");
-    }
-
-    // Create a SINGLE SMTP connection for all emails
-    const { SMTPClient } = await import("https://deno.land/x/denomailer@1.6.0/mod.ts");
-    const client = new SMTPClient({
-      connection: {
-        hostname: "smtp.gmail.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: smtpEmail,
-          password: smtpPassword,
-        },
-      },
-    });
+    // Get FCM access token
+    const accessToken = await getAccessToken(serviceAccount);
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
     let totalNotified = 0;
     const errors: string[] = [];
+    const staleTokens: string[] = [];
 
     for (const session of sessions) {
-      const sessionDate = new Date(session.scheduled_at);
-      // Convert to IST (UTC+5:30) since Deno edge functions run in UTC
-      const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in ms
-      const istDate = new Date(sessionDate.getTime() + istOffset);
-      const formattedDate = istDate.toLocaleDateString("en-IN", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        timeZone: "UTC", // already shifted to IST, use UTC to prevent double conversion
-      });
-      const formattedTime = istDate.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-        timeZone: "UTC", // already shifted to IST, use UTC to prevent double conversion
-      });
-
-      for (const user of allUsers) {
-        if (!user.email) continue;
-
-        const name = profileMap.get(user.id) || "Yogi";
-        const subject = `🧘 Live Class Alert: ${session.title} starts in 30 minutes!`;
-        const html = `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f7f4; padding: 30px; border-radius: 12px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h1 style="color: #5b4a3f; font-size: 24px; margin: 0;">🧘 Playoga</h1>
-            </div>
-            <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-              <h2 style="color: #5b4a3f; margin-top: 0;">Namaste, ${name}!</h2>
-              <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                A live yoga session <strong>"${session.title}"</strong> is starting in 30 minutes! Don't miss it! 🙏
-              </p>
-              <div style="background: #f0ebe4; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                <p style="margin: 4px 0; color: #5b4a3f;"><strong>📅 Date:</strong> ${formattedDate}</p>
-                <p style="margin: 4px 0; color: #5b4a3f;"><strong>⏰ Time:</strong> ${formattedTime}</p>
-                ${session.instructor_name ? `<p style="margin: 4px 0; color: #5b4a3f;"><strong>👤 Instructor:</strong> ${session.instructor_name}</p>` : ""}
-                ${session.duration_minutes ? `<p style="margin: 4px 0; color: #5b4a3f;"><strong>⏱ Duration:</strong> ${session.duration_minutes} minutes</p>` : ""}
-              </div>
-              ${session.description ? `<p style="color: #888; font-size: 14px;">${session.description}</p>` : ""}
-              <div style="text-align: center; margin-top: 24px;">
-                <a href="https://serene-asana-online.lovable.app/live" style="background: #5b4a3f; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: bold;">View Live Classes</a>
-              </div>
-            </div>
-            <p style="text-align: center; color: #aaa; font-size: 12px; margin-top: 20px;">
-              You're receiving this because you're a member of Playoga.
-            </p>
-          </div>
-        `;
-
+      for (const { token } of tokens) {
         try {
-          await client.send({
-            from: smtpEmail,
-            to: user.email,
-            subject,
-            // content: "auto",
-            html,
+          const res = await fetch(fcmUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              message: {
+                token,
+                notification: {
+                  title: "🧘 Playoga",
+                  body: `${session.title} starts in 30 minutes`,
+                },
+                webpush: {
+                  fcm_options: {
+                    link: "/live",
+                  },
+                },
+                data: {
+                  url: "/live",
+                },
+              },
+            }),
           });
-          totalNotified++;
-        } catch (emailError) {
-          console.error(`Failed to email ${user.email}:`, emailError);
-          errors.push(`Failed to email ${user.email}: ${emailError}`);
+
+          if (res.ok) {
+            totalNotified++;
+          } else {
+            const errBody = await res.json();
+            const errorCode = errBody?.error?.details?.[0]?.errorCode || errBody?.error?.code;
+            // Mark unregistered tokens for cleanup
+            if (errorCode === "UNREGISTERED" || errorCode === 404) {
+              staleTokens.push(token);
+            }
+            errors.push(`FCM error for token ${token.substring(0, 10)}...: ${JSON.stringify(errBody?.error?.message || errBody)}`);
+          }
+        } catch (e) {
+          errors.push(`Failed to send to token ${token.substring(0, 10)}...: ${e}`);
         }
       }
     }
 
-    // Close SMTP connection after all emails sent
-    await client.close();
+    // Clean up stale tokens
+    if (staleTokens.length > 0) {
+      await supabase.from("device_tokens").delete().in("token", staleTokens);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         notified: totalNotified,
         sessions: sessions.length,
-        totalUsers: allUsers.length,
+        totalTokens: tokens.length,
+        staleTokensCleaned: staleTokens.length,
         errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
