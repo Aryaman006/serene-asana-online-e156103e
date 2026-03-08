@@ -110,6 +110,65 @@ export type Database = {
           },
         ]
       }
+      corporate_members: {
+        Row: {
+          corporate_id: string
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          corporate_id: string
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          corporate_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_members_corporate_id_fkey"
+            columns: ["corporate_id"]
+            isOneToOne: false
+            referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      corporates: {
+        Row: {
+          coupon_code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_members: number | null
+          name: string
+        }
+        Insert: {
+          coupon_code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_members?: number | null
+          name: string
+        }
+        Update: {
+          coupon_code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_members?: number | null
+          name?: string
+        }
+        Relationships: []
+      }
       coupons: {
         Row: {
           code: string
@@ -152,6 +211,27 @@ export type Database = {
           uses_count?: number | null
           valid_from?: string | null
           valid_until?: string | null
+        }
+        Relationships: []
+      }
+      device_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -367,13 +447,34 @@ export type Database = {
         }
         Relationships: []
       }
+      site_stats: {
+        Row: {
+          id: number
+          total_visitors: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          total_visitors?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          total_visitors?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount_paid: number | null
+          corporate_id: string | null
+          coupon_code: string | null
           created_at: string
           expires_at: string | null
           gst_amount: number | null
           id: string
+          is_corporate: boolean | null
           payment_id: string | null
           plan_name: string | null
           starts_at: string | null
@@ -383,10 +484,13 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          corporate_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           expires_at?: string | null
           gst_amount?: number | null
           id?: string
+          is_corporate?: boolean | null
           payment_id?: string | null
           plan_name?: string | null
           starts_at?: string | null
@@ -396,10 +500,13 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          corporate_id?: string | null
+          coupon_code?: string | null
           created_at?: string
           expires_at?: string | null
           gst_amount?: number | null
           id?: string
+          is_corporate?: boolean | null
           payment_id?: string | null
           plan_name?: string | null
           starts_at?: string | null
@@ -407,7 +514,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_corporate_id_fkey"
+            columns: ["corporate_id"]
+            isOneToOne: false
+            referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       videos: {
         Row: {
@@ -470,6 +585,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      visitors: {
+        Row: {
+          created_at: string
+          id: string
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          visitor_id?: string
+        }
+        Relationships: []
       }
       wallets: {
         Row: {
@@ -656,6 +789,7 @@ export type Database = {
         Returns: undefined
       }
       generate_referral_code: { Args: { _user_id: string }; Returns: undefined }
+      get_total_visitors: { Args: never; Returns: number }
       get_user_yogic_points: { Args: { _user_id: string }; Returns: number }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
@@ -663,6 +797,7 @@ export type Database = {
         Args: { _referral_code: string; _referred_user_id: string }
         Returns: undefined
       }
+      register_visitor: { Args: { _visitor_id: string }; Returns: number }
     }
     Enums: {
       subscription_status: "free" | "active" | "expired" | "cancelled"
