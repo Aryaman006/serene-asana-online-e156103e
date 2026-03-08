@@ -110,6 +110,38 @@ export type Database = {
           },
         ]
       }
+      corporate_admins: {
+        Row: {
+          corporate_id: string
+          created_at: string | null
+          id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          corporate_id: string
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          corporate_id?: string
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_admins_corporate_id_fkey"
+            columns: ["corporate_id"]
+            isOneToOne: false
+            referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       corporate_members: {
         Row: {
           corporate_id: string
@@ -141,6 +173,8 @@ export type Database = {
       }
       corporates: {
         Row: {
+          admin_email: string | null
+          auth_user_id: string | null
           coupon_code: string
           created_at: string
           expires_at: string | null
@@ -150,6 +184,8 @@ export type Database = {
           name: string
         }
         Insert: {
+          admin_email?: string | null
+          auth_user_id?: string | null
           coupon_code: string
           created_at?: string
           expires_at?: string | null
@@ -159,6 +195,8 @@ export type Database = {
           name: string
         }
         Update: {
+          admin_email?: string | null
+          auth_user_id?: string | null
           coupon_code?: string
           created_at?: string
           expires_at?: string | null
