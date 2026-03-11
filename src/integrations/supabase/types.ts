@@ -252,6 +252,138 @@ export type Database = {
         }
         Relationships: []
       }
+      course_authors: {
+        Row: {
+          avatar: string | null
+          bio: string | null
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          avatar?: string | null
+          bio?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      course_categories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      courses: {
+        Row: {
+          ai_generated: boolean | null
+          ai_summary: string | null
+          author_id: string | null
+          category_id: string | null
+          content: string | null
+          created_at: string | null
+          description: string | null
+          featured: boolean | null
+          featured_image: string | null
+          id: string
+          published: boolean | null
+          reading_time: number | null
+          seo_description: string | null
+          seo_keywords: string[] | null
+          seo_title: string | null
+          slug: string
+          tags: string[] | null
+          thumbnail: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          ai_summary?: string | null
+          author_id?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          featured_image?: string | null
+          id?: string
+          published?: boolean | null
+          reading_time?: number | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
+          slug: string
+          tags?: string[] | null
+          thumbnail?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          ai_summary?: string | null
+          author_id?: string | null
+          category_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          featured_image?: string | null
+          id?: string
+          published?: boolean | null
+          reading_time?: number | null
+          seo_description?: string | null
+          seo_keywords?: string[] | null
+          seo_title?: string | null
+          slug?: string
+          tags?: string[] | null
+          thumbnail?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "course_authors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "course_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_tokens: {
         Row: {
           created_at: string
