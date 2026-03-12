@@ -62,7 +62,7 @@ const SubscribePage: React.FC = () => {
   const [corporateId, setCorporateId] = useState<string | null>(null);
   const [corporateName, setCorporateName] = useState<string | null>(null);
 
-  const basePrice = 999; // Production price
+  const basePrice = 1; // Production price
   const gstRate = 0.05;
   const discountedPrice = isCorporate ? 0 : basePrice - discount;
   const gstAmount = isCorporate ? 0 : discountedPrice * gstRate;
