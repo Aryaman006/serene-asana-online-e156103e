@@ -16,25 +16,32 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify auth
+    // Verify auth using getClaims
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
 
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
+
+    const userId = claimsData.claims.sub as string;
 
     const { coupon_code, user_email } = await req.json();
 
@@ -48,7 +55,7 @@ serve(async (req) => {
     const normalizedEmail = user_email.toLowerCase().trim();
     const normalizedCoupon = coupon_code.trim();
 
-    // 1. Find corporate by coupon_code (CASE-INSENSITIVE using ilike)
+    // 1. Find corporate by coupon_code (CASE-INSENSITIVE)
     const { data: corporate, error: corpError } = await supabase
       .from("corporates")
       .select("*")
@@ -107,7 +114,7 @@ serve(async (req) => {
     const { data: existingSub } = await supabase
       .from("subscriptions")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("corporate_id", corporate.id)
       .eq("is_corporate", true)
       .eq("status", "active")
@@ -120,45 +127,14 @@ serve(async (req) => {
       );
     }
 
-    // 6. Create/upgrade subscription to premium
-    const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1-year corporate subscription
-
-    const { data: newSub, error: subError } = await supabase
-      .from("subscriptions")
-      .upsert({
-        user_id: user.id,
-        corporate_id: corporate.id,
-        plan_name: "Corporate Premium",
-        status: "active",
-        amount_paid: 0,
-        gst_amount: 0,
-        coupon_code: corporate.coupon_code,
-        is_corporate: true,
-        starts_at: now.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      }, { onConflict: "user_id" })
-      .select()
-      .single();
-
-    if (subError) {
-      console.error("Subscription creation error:", subError);
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Failed to activate subscription" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    // All checks pass — coupon validated & subscription activated
+    // VALIDATION ONLY — do NOT create subscription here.
+    // Subscription is created by activate-corporate-subscription when user confirms.
     return new Response(
       JSON.stringify({
         valid: true,
         corporate_id: corporate.id,
         corporate_name: corporate.name,
         discount: 100,
-        subscription_id: newSub.id,
-        expires_at: expiresAt.toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
