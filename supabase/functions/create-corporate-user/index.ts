@@ -1,5 +1,6 @@
+// Corporate creation edge function - v2
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,30 +24,23 @@ serve(async (req) => {
     const { data: { user } } = await callerClient.auth.getUser();
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: adminData } = await adminClient
-      .from("admins")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
+    const { data: adminData } = await adminClient.from("admins").select("id").eq("user_id", user.id).single();
     if (!adminData) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { corporate_id, email, password } = await req.json();
+    const { name, coupon_code, email, password } = await req.json();
 
-    if (!corporate_id || !email || !password) {
+    if (!name || !email || !password) {
       return new Response(
-        JSON.stringify({ error: "corporate_id, email, and password are required" }),
+        JSON.stringify({ error: "name, email, and password are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -60,49 +54,48 @@ serve(async (req) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Set admin_email first so it's always saved
-    await adminClient
-      .from("corporates")
-      .update({ admin_email: normalizedEmail })
-      .eq("id", corporate_id);
-
-    // Create auth user for corporate admin
+    // 1. Create auth user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password,
       email_confirm: true,
       user_metadata: { role: "corporate_admin" },
     });
-
     if (createError) {
       return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Link auth user to corporate record
-    const { error: updateError } = await adminClient
-      .from("corporates")
-      .update({ auth_user_id: newUser.user.id })
-      .eq("id", corporate_id);
-
-    if (updateError) {
+    // 2. Insert corporate
+    const { data: newCorp, error: corpError } = await adminClient.from("corporates")
+      .insert({ name: name.trim(), coupon_code: coupon_code?.trim() || null, admin_email: normalizedEmail, auth_user_id: newUser.user.id })
+      .select().single();
+    if (corpError) {
       await adminClient.auth.admin.deleteUser(newUser.user.id);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: corpError.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 3. Link admin with email and password
+    const { error: adminLinkError } = await adminClient.from("corporate_admins")
+      .insert({ corporate_id: newCorp.id, user_id: newUser.user.id, email: normalizedEmail, password });
+    if (adminLinkError) {
+      await adminClient.from("corporates").delete().eq("id", newCorp.id);
+      await adminClient.auth.admin.deleteUser(newUser.user.id);
+      return new Response(JSON.stringify({ error: adminLinkError.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(
-      JSON.stringify({ success: true, user_id: newUser.user.id }),
+      JSON.stringify({ success: true, corporate: newCorp, user_id: newUser.user.id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
