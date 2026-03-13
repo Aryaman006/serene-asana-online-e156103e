@@ -155,6 +155,13 @@ serve(async (req) => {
       );
     }
 
+    // Mark member as premium after successful activation
+    await supabase
+      .from("corporate_members")
+      .update({ is_premium: true })
+      .eq("corporate_id", corporate.id)
+      .eq("email", userEmail.toLowerCase().trim());
+
     return new Response(
       JSON.stringify({
         success: true,

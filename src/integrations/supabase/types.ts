@@ -154,18 +154,21 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_premium: boolean | null
         }
         Insert: {
           corporate_id: string
           created_at?: string
           email: string
           id?: string
+          is_premium?: boolean | null
         }
         Update: {
           corporate_id?: string
           created_at?: string
           email?: string
           id?: string
+          is_premium?: boolean | null
         }
         Relationships: [
           {
