@@ -21,28 +21,31 @@ serve(async (req) => {
     // Verify auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Unauthorized" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token);
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Unauthorized" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
     }
 
     const { coupon_code, user_email } = await req.json();
 
     if (!coupon_code || !user_email) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Missing coupon code or email" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "Missing coupon code or email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     const normalizedEmail = user_email.toLowerCase().trim();
@@ -57,18 +60,16 @@ serve(async (req) => {
       .single();
 
     if (corpError || !corporate) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Invalid or inactive coupon" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "Invalid or inactive coupon" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 2. Check expiry
     if (corporate.expires_at && new Date(corporate.expires_at) < new Date()) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "This corporate coupon has expired" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "This corporate coupon has expired" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 3. Check email eligibility
@@ -80,10 +81,9 @@ serve(async (req) => {
       .single();
 
     if (memberError || !member) {
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Email not eligible for this corporate plan" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ valid: false, reason: "Email not eligible for this corporate plan" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 4. Check max_members limit
@@ -96,38 +96,38 @@ serve(async (req) => {
         .eq("status", "active");
 
       if (count !== null && count >= corporate.max_members) {
-        return new Response(
-          JSON.stringify({ valid: false, reason: "Corporate member limit reached" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ valid: false, reason: "Corporate member limit reached" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
     // 5. Check if user already has an active corporate subscription
-    const { data: existingCorp } = await supabase
+    const { data: existingSub } = await supabase
       .from("subscriptions")
-      .select("id, status, corporate_id, is_corporate")
+      .select("id")
       .eq("user_id", user.id)
       .eq("corporate_id", corporate.id)
       .eq("is_corporate", true)
       .eq("status", "active")
       .maybeSingle();
 
-    if (existingCorp) {
+    if (existingSub) {
       return new Response(
         JSON.stringify({ valid: false, reason: "You already have an active corporate subscription" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 6. Upgrade existing subscription to corporate premium (unique constraint on user_id)
+    // 6. Create/upgrade subscription to premium
     const now = new Date();
     const expiresAt = new Date(now);
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1-year corporate subscription
 
     const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .update({
+      .insert({
+        user_id: user.id,
         corporate_id: corporate.id,
         plan_name: "Corporate Premium",
         status: "active",
@@ -137,18 +137,16 @@ serve(async (req) => {
         is_corporate: true,
         starts_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
-        updated_at: now.toISOString(),
       })
-      .eq("user_id", user.id)
       .select()
       .single();
 
     if (subError) {
-      console.error("Subscription update error:", subError);
-      return new Response(
-        JSON.stringify({ valid: false, reason: "Failed to activate subscription" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
+      console.error("Subscription creation error:", subError);
+      return new Response(JSON.stringify({ valid: false, reason: "Failed to activate subscription" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
     }
 
     // All checks pass — coupon validated & subscription activated
@@ -161,13 +159,13 @@ serve(async (req) => {
         subscription_id: newSub.id,
         expires_at: expiresAt.toISOString(),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Corporate coupon validation error:", error);
-    return new Response(
-      JSON.stringify({ valid: false, reason: "An error occurred" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-    );
+    return new Response(JSON.stringify({ valid: false, reason: "An error occurred" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
