@@ -963,6 +963,7 @@ export type Database = {
       get_user_yogic_points: { Args: { _user_id: string }; Returns: number }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_corporate_admin: { Args: { uid: string }; Returns: boolean }
       process_referral: {
         Args: { _referral_code: string; _referred_user_id: string }
         Returns: undefined
