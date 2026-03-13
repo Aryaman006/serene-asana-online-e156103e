@@ -115,7 +115,7 @@ serve(async (req) => {
       }
     }
 
-    // 6. Activate subscription
+    // 6. Activate subscription (UPDATE existing row due to unique constraint on user_id)
     const startsAt = new Date();
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
