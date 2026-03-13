@@ -17,6 +17,7 @@ interface Category {
   name: string;
   thumbnail_url: string | null;
   is_featured: boolean;
+  video_count?: number;
 }
 
 interface Video {
@@ -63,6 +64,28 @@ const HomePage: React.FC = () => {
         .order('sort_order')
         .limit(4);
 
+      // Fetch video counts per category
+      let categoriesWithCounts: Category[] = categories || [];
+      if (categories && categories.length > 0) {
+        const categoryIds = categories.map((c: Category) => c.id);
+        const { data: countData } = await supabase
+          .from('videos')
+          .select('category_id')
+          .eq('is_published', true)
+          .in('category_id', categoryIds);
+
+        const countMap: Record<string, number> = {};
+        (countData || []).forEach((v: { category_id: string | null }) => {
+          if (v.category_id) {
+            countMap[v.category_id] = (countMap[v.category_id] || 0) + 1;
+          }
+        });
+        categoriesWithCounts = categories.map((c: Category) => ({
+          ...c,
+          video_count: countMap[c.id] || 0,
+        }));
+      }
+
       // Fetch trending videos (by views)
       const { data: trending } = await supabase
         .from('videos')
@@ -88,7 +111,7 @@ const HomePage: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(6);
 
-      setFeaturedCategories(categories || []);
+      setFeaturedCategories(categoriesWithCounts);
       setTrendingVideos(trending || []);
       setUpcomingSessions(sessions || []);
       setRecentVideos(recent || []);
@@ -222,6 +245,7 @@ const HomePage: React.FC = () => {
                     id={category.id}
                     name={category.name}
                     thumbnailUrl={category.thumbnail_url || undefined}
+                    videoCount={category.video_count || 0}
                     isFeatured={category.is_featured}
                   />
                 ))
