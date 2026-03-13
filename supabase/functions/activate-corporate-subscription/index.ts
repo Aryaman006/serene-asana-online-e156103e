@@ -122,7 +122,7 @@ serve(async (req) => {
 
     const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .insert({
+      .upsert({
         user_id: user.id,
         corporate_id: corporate.id,
         plan_name: "Corporate Premium",
@@ -133,7 +133,7 @@ serve(async (req) => {
         is_corporate: true,
         starts_at: startsAt.toISOString(),
         expires_at: expiresAt.toISOString(),
-      })
+      }, { onConflict: "user_id" })
       .select()
       .single();
 
