@@ -125,15 +125,14 @@ serve(async (req) => {
       }
     }
 
-    // 6. Activate subscription (INSERT new row)
+    // 6. Activate subscription (UPDATE existing row since handle_new_user trigger creates a free row)
     const startsAt = new Date();
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
     const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .insert({
-        user_id: userId,
+      .update({
         corporate_id: corporate.id,
         plan_name: "Corporate Yearly",
         status: "active",
@@ -144,6 +143,7 @@ serve(async (req) => {
         starts_at: startsAt.toISOString(),
         expires_at: expiresAt.toISOString(),
       })
+      .eq("user_id", userId)
       .select()
       .single();
 
