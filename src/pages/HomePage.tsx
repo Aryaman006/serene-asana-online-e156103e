@@ -17,6 +17,7 @@ interface Category {
   name: string;
   thumbnail_url: string | null;
   is_featured: boolean;
+  video_count?: number;
 }
 
 interface Video {
