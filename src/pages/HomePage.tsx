@@ -64,6 +64,28 @@ const HomePage: React.FC = () => {
         .order('sort_order')
         .limit(4);
 
+      // Fetch video counts per category
+      let categoriesWithCounts: Category[] = categories || [];
+      if (categories && categories.length > 0) {
+        const categoryIds = categories.map((c: Category) => c.id);
+        const { data: countData } = await supabase
+          .from('videos')
+          .select('category_id')
+          .eq('is_published', true)
+          .in('category_id', categoryIds);
+
+        const countMap: Record<string, number> = {};
+        (countData || []).forEach((v: { category_id: string | null }) => {
+          if (v.category_id) {
+            countMap[v.category_id] = (countMap[v.category_id] || 0) + 1;
+          }
+        });
+        categoriesWithCounts = categories.map((c: Category) => ({
+          ...c,
+          video_count: countMap[c.id] || 0,
+        }));
+      }
+
       // Fetch trending videos (by views)
       const { data: trending } = await supabase
         .from('videos')
