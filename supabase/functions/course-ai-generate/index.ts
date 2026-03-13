@@ -24,15 +24,42 @@ serve(async (req) => {
       });
     }
 
-    // Strip HTML for cleaner AI input
     const plainText = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    const truncated = plainText.slice(0, 4000);
+    const truncated = plainText.slice(0, 6000);
 
     let systemPrompt = "";
     let tools: any[] = [];
     let toolChoice: any = undefined;
 
-    if (type === "summary") {
+    if (type === "enhance") {
+      systemPrompt = `You are a professional content editor and formatter. Take the raw blog content and transform it into a beautifully structured, well-formatted HTML article. 
+
+Rules:
+- Use semantic HTML: <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>
+- Break content into clear sections with headings
+- Add proper paragraph breaks
+- Improve readability and flow while preserving the original meaning
+- Do NOT add any content that wasn't in the original — only restructure and format
+- Do NOT wrap in <html>, <head>, or <body> tags — just return the article body HTML
+- Make it visually appealing with good use of headings, lists, and emphasis`;
+
+      tools = [{
+        type: "function",
+        function: {
+          name: "return_formatted",
+          description: "Return the formatted HTML content",
+          parameters: {
+            type: "object",
+            properties: {
+              content_formatted: { type: "string", description: "Beautifully formatted HTML article content" },
+            },
+            required: ["content_formatted"],
+            additionalProperties: false,
+          },
+        },
+      }];
+      toolChoice = { type: "function", function: { name: "return_formatted" } };
+    } else if (type === "summary") {
       systemPrompt = "You are a content summarizer. Generate a concise 2-3 sentence summary of the given course content.";
       tools = [{
         type: "function",
@@ -48,44 +75,8 @@ serve(async (req) => {
         },
       }];
       toolChoice = { type: "function", function: { name: "return_summary" } };
-    } else if (type === "seo") {
-      systemPrompt = "You are an SEO expert. Generate SEO metadata for the given course content.";
-      tools = [{
-        type: "function",
-        function: {
-          name: "return_seo",
-          description: "Return SEO metadata",
-          parameters: {
-            type: "object",
-            properties: {
-              seo_title: { type: "string", description: "SEO title under 60 chars" },
-              seo_description: { type: "string", description: "Meta description under 160 chars" },
-              seo_keywords: { type: "array", items: { type: "string" }, description: "5-8 SEO keywords" },
-            },
-            required: ["seo_title", "seo_description", "seo_keywords"],
-            additionalProperties: false,
-          },
-        },
-      }];
-      toolChoice = { type: "function", function: { name: "return_seo" } };
-    } else if (type === "tags") {
-      systemPrompt = "You are a content tagger. Generate relevant tags for the given course content.";
-      tools = [{
-        type: "function",
-        function: {
-          name: "return_tags",
-          description: "Return content tags",
-          parameters: {
-            type: "object",
-            properties: { tags: { type: "array", items: { type: "string" }, description: "5-10 relevant tags" } },
-            required: ["tags"],
-            additionalProperties: false,
-          },
-        },
-      }];
-      toolChoice = { type: "function", function: { name: "return_tags" } };
     } else {
-      return new Response(JSON.stringify({ error: "Invalid type" }), {
+      return new Response(JSON.stringify({ error: "Invalid type. Use 'enhance' or 'summary'." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
