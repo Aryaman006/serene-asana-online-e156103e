@@ -120,7 +120,7 @@ serve(async (req) => {
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-    const { error: subError } = await supabase
+    const { data: updatedSub, error: subError } = await supabase
       .from("subscriptions")
       .update({
         status: "active",
@@ -134,12 +134,14 @@ serve(async (req) => {
         is_corporate: true,
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select()
+      .single();
 
-    if (subError) {
+    if (subError || !updatedSub) {
       console.error("Corporate subscription error:", subError);
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to activate corporate subscription" }),
+        JSON.stringify({ success: false, error: "Failed to activate corporate subscription. No subscription record found for user." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
