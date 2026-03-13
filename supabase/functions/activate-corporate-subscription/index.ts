@@ -115,33 +115,32 @@ serve(async (req) => {
       }
     }
 
-    // 6. Activate subscription (UPDATE existing row due to unique constraint on user_id)
+    // 6. Activate subscription (INSERT new row, consistent with validate-corporate-coupon)
     const startsAt = new Date();
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-    const { data: updatedSub, error: subError } = await supabase
+    const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .update({
+      .insert({
+        user_id: user.id,
+        corporate_id: corporate.id,
+        plan_name: "Corporate Premium",
         status: "active",
-        plan_name: "Corporate Yearly",
-        starts_at: startsAt.toISOString(),
-        expires_at: expiresAt.toISOString(),
         amount_paid: 0,
         gst_amount: 0,
-        corporate_id: corporate.id,
-        coupon_code: coupon_code.toUpperCase().trim(),
+        coupon_code: corporate.coupon_code,
         is_corporate: true,
-        updated_at: new Date().toISOString(),
+        starts_at: startsAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
       })
-      .eq("user_id", user.id)
       .select()
       .single();
 
-    if (subError || !updatedSub) {
+    if (subError || !newSub) {
       console.error("Corporate subscription error:", subError);
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to activate corporate subscription. No subscription record found for user." }),
+        JSON.stringify({ success: false, error: "Failed to activate corporate subscription" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
