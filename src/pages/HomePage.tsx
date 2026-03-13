@@ -245,6 +245,7 @@ const HomePage: React.FC = () => {
                     id={category.id}
                     name={category.name}
                     thumbnailUrl={category.thumbnail_url || undefined}
+                    videoCount={category.video_count || 0}
                     isFeatured={category.is_featured}
                   />
                 ))
