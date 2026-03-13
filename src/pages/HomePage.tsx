@@ -111,7 +111,7 @@ const HomePage: React.FC = () => {
         .order('created_at', { ascending: false })
         .limit(6);
 
-      setFeaturedCategories(categories || []);
+      setFeaturedCategories(categoriesWithCounts);
       setTrendingVideos(trending || []);
       setUpcomingSessions(sessions || []);
       setRecentVideos(recent || []);
