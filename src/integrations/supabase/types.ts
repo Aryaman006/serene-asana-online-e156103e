@@ -311,8 +311,11 @@ export type Database = {
           ai_generated: boolean | null
           ai_summary: string | null
           author_id: string | null
+          author_name: string | null
           category_id: string | null
           content: string | null
+          content_formatted: string | null
+          content_raw: string | null
           created_at: string | null
           description: string | null
           featured: boolean | null
@@ -334,8 +337,11 @@ export type Database = {
           ai_generated?: boolean | null
           ai_summary?: string | null
           author_id?: string | null
+          author_name?: string | null
           category_id?: string | null
           content?: string | null
+          content_formatted?: string | null
+          content_raw?: string | null
           created_at?: string | null
           description?: string | null
           featured?: boolean | null
@@ -357,8 +363,11 @@ export type Database = {
           ai_generated?: boolean | null
           ai_summary?: string | null
           author_id?: string | null
+          author_name?: string | null
           category_id?: string | null
           content?: string | null
+          content_formatted?: string | null
+          content_raw?: string | null
           created_at?: string | null
           description?: string | null
           featured?: boolean | null
