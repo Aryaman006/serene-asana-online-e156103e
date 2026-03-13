@@ -104,31 +104,30 @@ serve(async (req) => {
     }
 
     // 5. Check if user already has an active corporate subscription
-    const { data: existingSub } = await supabase
+    const { data: existingCorp } = await supabase
       .from("subscriptions")
-      .select("id")
+      .select("id, status, corporate_id, is_corporate")
       .eq("user_id", user.id)
       .eq("corporate_id", corporate.id)
       .eq("is_corporate", true)
       .eq("status", "active")
       .maybeSingle();
 
-    if (existingSub) {
+    if (existingCorp) {
       return new Response(
         JSON.stringify({ valid: false, reason: "You already have an active corporate subscription" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 6. Create/upgrade subscription to premium
+    // 6. Upgrade existing subscription to corporate premium (unique constraint on user_id)
     const now = new Date();
     const expiresAt = new Date(now);
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1-year corporate subscription
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
     const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .insert({
-        user_id: user.id,
+      .update({
         corporate_id: corporate.id,
         plan_name: "Corporate Premium",
         status: "active",
@@ -138,12 +137,14 @@ serve(async (req) => {
         is_corporate: true,
         starts_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
+        updated_at: now.toISOString(),
       })
+      .eq("user_id", user.id)
       .select()
       .single();
 
     if (subError) {
-      console.error("Subscription creation error:", subError);
+      console.error("Subscription update error:", subError);
       return new Response(
         JSON.stringify({ valid: false, reason: "Failed to activate subscription" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
