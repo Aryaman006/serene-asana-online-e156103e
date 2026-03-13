@@ -15,26 +15,36 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify auth
+    // Verify auth using anon client + getClaims
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
+
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ valid: false, reason: "Unauthorized" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 }
       );
     }
+
+    const userId = claimsData.claims.sub as string;
+    const userEmail = (claimsData.claims.email as string) || "";
+
+    // Service role client for DB operations
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { coupon_code, user_email } = await req.json();
 
@@ -107,7 +117,7 @@ serve(async (req) => {
     const { data: existingSub } = await supabase
       .from("subscriptions")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("corporate_id", corporate.id)
       .eq("is_corporate", true)
       .eq("status", "active")
@@ -120,17 +130,17 @@ serve(async (req) => {
       );
     }
 
-    // 6. Create/upgrade subscription to premium
+    // 6. Create subscription via INSERT
     const now = new Date();
     const expiresAt = new Date(now);
     expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1-year corporate subscription
 
     const { data: newSub, error: subError } = await supabase
       .from("subscriptions")
-      .upsert({
-        user_id: user.id,
+      .insert({
+        user_id: userId,
         corporate_id: corporate.id,
-        plan_name: "Corporate Premium",
+        plan_name: "Corporate Yearly",
         status: "active",
         amount_paid: 0,
         gst_amount: 0,
@@ -138,7 +148,7 @@ serve(async (req) => {
         is_corporate: true,
         starts_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
-      }, { onConflict: "user_id" })
+      })
       .select()
       .single();
 
