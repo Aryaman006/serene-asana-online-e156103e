@@ -102,6 +102,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "commissions_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "commissions_subscription_id_fkey"
             columns: ["subscription_id"]
             isOneToOne: false
@@ -118,7 +132,7 @@ export type Database = {
           id: string
           password: string | null
           role: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           corporate_id: string
@@ -127,7 +141,7 @@ export type Database = {
           id?: string
           password?: string | null
           role?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           corporate_id?: string
@@ -136,7 +150,7 @@ export type Database = {
           id?: string
           password?: string | null
           role?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -144,6 +158,13 @@ export type Database = {
             columns: ["corporate_id"]
             isOneToOne: false
             referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corporate_admins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
             referencedColumns: ["id"]
           },
         ]
@@ -214,7 +235,15 @@ export type Database = {
           max_members?: number | null
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "corporates_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coupons: {
         Row: {
@@ -453,6 +482,13 @@ export type Database = {
             referencedRelation: "live_sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "live_session_registrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       live_sessions: {
@@ -503,6 +539,30 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      media_events: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -573,6 +633,13 @@ export type Database = {
             referencedRelation: "subscriptions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
@@ -609,7 +676,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referrals: {
         Row: {
@@ -708,6 +783,13 @@ export type Database = {
             columns: ["corporate_id"]
             isOneToOne: false
             referencedRelation: "corporates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_emails"
             referencedColumns: ["id"]
           },
         ]
@@ -814,7 +896,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       watch_progress: {
         Row: {
@@ -852,6 +942,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "watch_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "watch_progress_video_id_fkey"
             columns: ["video_id"]
             isOneToOne: false
@@ -880,6 +977,13 @@ export type Database = {
           video_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "wishlist_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "wishlist_video_id_fkey"
             columns: ["video_id"]
@@ -923,7 +1027,15 @@ export type Database = {
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       yogic_points_transactions: {
         Row: {
@@ -955,6 +1067,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "yogic_points_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "yogic_points_transactions_video_id_fkey"
             columns: ["video_id"]
             isOneToOne: false
@@ -965,7 +1084,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_emails: {
+        Row: {
+          email: string | null
+          id: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       award_yogic_points: {
