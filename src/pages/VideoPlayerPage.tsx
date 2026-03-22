@@ -181,14 +181,12 @@ const VideoPlayerPage: React.FC = () => {
         });
       }
 
-      // Update video total watch time
+      // Update video total watch time via RPC
       if (video) {
-        await supabase
-          .from('videos')
-          .update({
-            total_watch_time_seconds: (video.total_watch_time_seconds || 0) + 1,
-          })
-          .eq('id', video.id);
+        await supabase.rpc('increment_video_watch_time', { 
+          _video_id: video.id, 
+          _seconds: 10 
+        });
       }
     },
     [user, id, video]
