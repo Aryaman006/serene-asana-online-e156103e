@@ -126,11 +126,8 @@ const VideoPlayerPage: React.FC = () => {
     setRelatedVideos(related || []);
     setIsLoading(false);
 
-    // Increment view count
-    await supabase
-      .from('videos')
-      .update({ views_count: (data.views_count || 0) + 1 })
-      .eq('id', data.id);
+    // Increment view count via RPC (users can't UPDATE videos table directly)
+    await supabase.rpc('increment_video_view', { _video_id: data.id });
   };
 
   const fetchWatchProgress = async () => {
