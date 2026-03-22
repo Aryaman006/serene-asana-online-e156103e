@@ -1113,6 +1113,15 @@ export type Database = {
       get_total_visitors: { Args: never; Returns: number }
       get_user_yogic_points: { Args: { _user_id: string }; Returns: number }
       has_active_subscription: { Args: { _user_id: string }; Returns: boolean }
+      increment_video_completion: {
+        Args: { _video_id: string }
+        Returns: undefined
+      }
+      increment_video_view: { Args: { _video_id: string }; Returns: undefined }
+      increment_video_watch_time: {
+        Args: { _seconds: number; _video_id: string }
+        Returns: undefined
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_corporate_admin: { Args: { uid: string }; Returns: boolean }
       process_referral: {
