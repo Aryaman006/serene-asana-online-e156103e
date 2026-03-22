@@ -212,11 +212,8 @@ const VideoPlayerPage: React.FC = () => {
         refreshYogicPoints();
       }
 
-      // Update completion count
-      await supabase
-        .from('videos')
-        .update({ completion_count: (video.completion_count || 0) + 1 })
-        .eq('id', video.id);
+      // Update completion count via RPC
+      await supabase.rpc('increment_video_completion', { _video_id: id });
     }
   };
 
