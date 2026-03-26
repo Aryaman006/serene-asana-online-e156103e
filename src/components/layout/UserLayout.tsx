@@ -26,6 +26,7 @@ import {
   Video,
   X,
   BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import playogaLogo from '@/assets/playoga-logo.png';
@@ -43,6 +44,7 @@ const navItems = [
 ];
 
 const secondaryNavItems = [
+  { href: '/my-courses', label: 'My Courses', icon: GraduationCap },
   { href: '/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/history', label: 'History', icon: History },
 ];
