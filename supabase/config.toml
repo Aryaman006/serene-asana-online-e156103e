@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.course-ai-generate]
 verify_jwt = false
+
+[functions.course-create-order]
+verify_jwt = false
+
+[functions.course-verify-payment]
+verify_jwt = false
