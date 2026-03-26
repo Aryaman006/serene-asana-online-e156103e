@@ -232,6 +232,7 @@ const CoursesPage: React.FC = () => {
                   isPurchased={purchasedCourseIds.has(course.id)}
                   onPurchase={handlePurchase}
                   formatPrice={formatPrice}
+                  onViewCourse={(slug) => navigate(`/courses/${slug}`)}
                   featured
                 />
               ))}
@@ -266,6 +267,7 @@ const CoursesPage: React.FC = () => {
                   isPurchased={purchasedCourseIds.has(course.id)}
                   onPurchase={handlePurchase}
                   formatPrice={formatPrice}
+                  onViewCourse={(slug) => navigate(`/courses/${slug}`)}
                 />
               ))}
             </div>
