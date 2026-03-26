@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, Clock, Eye, Tag, Crown, ChevronRight, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 
@@ -39,6 +40,7 @@ interface CourseCategory {
 
 const CoursesPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [purchasedCourseIds, setPurchasedCourseIds] = useState<Set<string>>(new Set());
@@ -230,6 +232,7 @@ const CoursesPage: React.FC = () => {
                   isPurchased={purchasedCourseIds.has(course.id)}
                   onPurchase={handlePurchase}
                   formatPrice={formatPrice}
+                  onViewCourse={(slug) => navigate(`/courses/${slug}`)}
                   featured
                 />
               ))}
@@ -264,6 +267,7 @@ const CoursesPage: React.FC = () => {
                   isPurchased={purchasedCourseIds.has(course.id)}
                   onPurchase={handlePurchase}
                   formatPrice={formatPrice}
+                  onViewCourse={(slug) => navigate(`/courses/${slug}`)}
                 />
               ))}
             </div>
@@ -285,15 +289,17 @@ interface CourseCardProps {
   onPurchase: (course: Course) => void;
   formatPrice: (course: Course) => string;
   featured?: boolean;
+  onViewCourse: (slug: string) => void;
 }
 
-const CourseCard: React.FC<CourseCardProps> = ({ course, isPurchased, onPurchase, formatPrice, featured }) => {
+const CourseCard: React.FC<CourseCardProps> = ({ course, isPurchased, onPurchase, formatPrice, featured, onViewCourse }) => {
   const image = course.featured_image || course.thumbnail;
   const price = formatPrice(course);
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-warm transition-all duration-300 flex flex-col ${
+      onClick={() => onViewCourse(course.slug)}
+      className={`group relative overflow-hidden rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-warm transition-all duration-300 flex flex-col cursor-pointer ${
         featured ? 'md:flex-row' : ''
       }`}
     >
@@ -371,21 +377,21 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, isPurchased, onPurchase
           {course.enable_payment && !isPurchased ? (
             <>
               <span className="text-lg font-bold text-foreground">{price}</span>
-              <Button size="sm" onClick={() => onPurchase(course)} className="bg-gradient-warm hover:opacity-90">
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); onPurchase(course); }} className="bg-gradient-warm hover:opacity-90">
                 Enroll Now <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </>
           ) : isPurchased ? (
             <>
-              <span className="text-sm text-green-600 font-medium">Access Granted</span>
-              <Button size="sm" variant="outline">
+              <span className="text-sm font-medium text-primary">Enrolled</span>
+              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onViewCourse(course.slug); }}>
                 View Course <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </>
           ) : (
             <>
-              <span className="text-lg font-bold text-green-600">Free</span>
-              <Button size="sm" variant="outline">
+              <span className="text-lg font-bold text-primary">Free</span>
+              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onViewCourse(course.slug); }}>
                 View Course <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </>
