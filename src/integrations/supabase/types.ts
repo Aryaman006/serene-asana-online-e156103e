@@ -404,9 +404,11 @@ export type Database = {
           content_raw: string | null
           created_at: string | null
           description: string | null
+          duration: string | null
           enable_payment: boolean | null
           featured: boolean | null
           featured_image: string | null
+          features: Json | null
           id: string
           payment_title: string | null
           price_eur: number | null
@@ -436,9 +438,11 @@ export type Database = {
           content_raw?: string | null
           created_at?: string | null
           description?: string | null
+          duration?: string | null
           enable_payment?: boolean | null
           featured?: boolean | null
           featured_image?: string | null
+          features?: Json | null
           id?: string
           payment_title?: string | null
           price_eur?: number | null
@@ -468,9 +472,11 @@ export type Database = {
           content_raw?: string | null
           created_at?: string | null
           description?: string | null
+          duration?: string | null
           enable_payment?: boolean | null
           featured?: boolean | null
           featured_image?: string | null
+          features?: Json | null
           id?: string
           payment_title?: string | null
           price_eur?: number | null

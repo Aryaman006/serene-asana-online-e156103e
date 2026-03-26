@@ -25,6 +25,7 @@ import {
   Sparkles,
   Video,
   X,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import playogaLogo from '@/assets/playoga-logo.png';
@@ -36,6 +37,7 @@ interface UserLayoutProps {
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/browse', label: 'Browse', icon: Search },
+  { href: '/courses', label: 'Courses', icon: BookOpen },
   { href: '/my-videos', label: 'My Videos', icon: Video },
   { href: '/live', label: 'Live', icon: Calendar },
 ];
