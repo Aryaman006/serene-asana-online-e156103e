@@ -335,6 +335,63 @@ export type Database = {
         }
         Relationships: []
       }
+      course_purchases: {
+        Row: {
+          amount: number
+          course_id: string | null
+          created_at: string | null
+          currency: string
+          id: string
+          payment_id: string | null
+          razorpay_order_id: string | null
+          razorpay_payment_id: string | null
+          razorpay_signature: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          course_id?: string | null
+          created_at?: string | null
+          currency: string
+          id?: string
+          payment_id?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          course_id?: string | null
+          created_at?: string | null
+          currency?: string
+          id?: string
+          payment_id?: string | null
+          razorpay_order_id?: string | null
+          razorpay_payment_id?: string | null
+          razorpay_signature?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_purchases_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_purchases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           ai_generated: boolean | null
@@ -347,9 +404,15 @@ export type Database = {
           content_raw: string | null
           created_at: string | null
           description: string | null
+          enable_payment: boolean | null
           featured: boolean | null
           featured_image: string | null
           id: string
+          payment_title: string | null
+          price_eur: number | null
+          price_gbp: number | null
+          price_inr: number | null
+          price_usd: number | null
           published: boolean | null
           reading_time: number | null
           seo_description: string | null
@@ -373,9 +436,15 @@ export type Database = {
           content_raw?: string | null
           created_at?: string | null
           description?: string | null
+          enable_payment?: boolean | null
           featured?: boolean | null
           featured_image?: string | null
           id?: string
+          payment_title?: string | null
+          price_eur?: number | null
+          price_gbp?: number | null
+          price_inr?: number | null
+          price_usd?: number | null
           published?: boolean | null
           reading_time?: number | null
           seo_description?: string | null
@@ -399,9 +468,15 @@ export type Database = {
           content_raw?: string | null
           created_at?: string | null
           description?: string | null
+          enable_payment?: boolean | null
           featured?: boolean | null
           featured_image?: string | null
           id?: string
+          payment_title?: string | null
+          price_eur?: number | null
+          price_gbp?: number | null
+          price_inr?: number | null
+          price_usd?: number | null
           published?: boolean | null
           reading_time?: number | null
           seo_description?: string | null
