@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,13 +14,13 @@ async function sendEnrollmentEmail(
   amount: number,
   currency: string
 ) {
-  const smtpEmail = Deno.env.get("SMTP_EMAIL");
-  const smtpPassword = Deno.env.get("SMTP_APP_PASSWORD");
-
-  if (!smtpEmail || !smtpPassword) {
-    console.error("SMTP credentials not configured, skipping email");
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured, skipping email");
     return;
   }
+
+  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
 
   const currencySymbols: Record<string, string> = {
     INR: "₹",
@@ -31,54 +30,52 @@ async function sendEnrollmentEmail(
   };
   const symbol = currencySymbols[currency] || currency;
 
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: {
-        username: smtpEmail,
-        password: smtpPassword,
-      },
-    },
-  });
-
   try {
-    await client.send({
-      from: smtpEmail,
-      to: userEmail,
-      subject: `🎉 Enrollment Confirmed: ${courseTitle}`,
-      content: "text",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0;">🎉 You're Enrolled!</h1>
-          </div>
-          <div style="padding: 30px; background: #f9f9f9;">
-            <p style="font-size: 16px; color: #333;">
-              Congratulations! Your payment of ${symbol}${amount} has been successfully processed.
-            </p>
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #667eea;">Course Details</h3>
-              <p><strong>Course:</strong> ${courseTitle}</p>
-              <p><strong>Amount Paid:</strong> ${symbol}${amount}</p>
-              <p><strong>Status:</strong> ✅ Active</p>
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [userEmail],
+        subject: `🎉 Enrollment Confirmed: ${courseTitle}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">🎉 You're Enrolled!</h1>
             </div>
-            <p style="font-size: 14px; color: #666;">
-              You now have full access to the course. Start learning right away!
-            </p>
-            <p style="font-size: 14px; color: #666;">
-              If you have any questions, feel free to reach out to our support team.
-            </p>
+            <div style="padding: 30px; background: #f9f9f9;">
+              <p style="font-size: 16px; color: #333;">
+                Congratulations! Your payment of ${symbol}${amount} has been successfully processed.
+              </p>
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #667eea;">Course Details</h3>
+                <p><strong>Course:</strong> ${courseTitle}</p>
+                <p><strong>Amount Paid:</strong> ${symbol}${amount}</p>
+                <p><strong>Status:</strong> ✅ Active</p>
+              </div>
+              <p style="font-size: 14px; color: #666;">
+                You now have full access to the course. Start learning right away!
+              </p>
+              <p style="font-size: 14px; color: #666;">
+                If you have any questions, feel free to reach out to our support team.
+              </p>
+            </div>
           </div>
-        </div>
-      `,
+        `,
+      }),
     });
-    console.log("Enrollment email sent to:", userEmail);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Resend API error:", res.status, errText);
+    } else {
+      console.log("Enrollment email sent to:", userEmail);
+    }
   } catch (emailError) {
     console.error("Failed to send enrollment email:", emailError);
-  } finally {
-    await client.close();
   }
 }
 
@@ -190,7 +187,7 @@ serve(async (req) => {
         userEmail = authUser.email;
       }
 
-      // Send confirmation email (non-blocking)
+      // Send confirmation email via Resend (non-blocking)
       if (userEmail) {
         sendEnrollmentEmail(userEmail, courseTitle, purchaseAmount, purchaseCurrency)
           .catch((err) => console.error("Email send error:", err));
