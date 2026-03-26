@@ -374,14 +374,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, isPurchased, onPurchase
 
         {/* Footer */}
         <div className="mt-auto pt-4 flex items-center justify-between">
-          {course.enable_payment && !isPurchased ? (
-            <>
-              <span className="text-lg font-bold text-foreground">{price}</span>
-              <Button size="sm" onClick={(e) => { e.stopPropagation(); onPurchase(course); }} className="bg-gradient-warm hover:opacity-90">
-                Enroll Now <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </>
-          ) : isPurchased ? (
+          {isPurchased ? (
             <>
               <span className="text-sm font-medium text-primary">Enrolled</span>
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onViewCourse(course.slug); }}>
@@ -390,7 +383,9 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, isPurchased, onPurchase
             </>
           ) : (
             <>
-              <span className="text-lg font-bold text-primary">Free</span>
+              <span className="text-lg font-bold text-foreground">
+                {course.enable_payment ? price : 'Free'}
+              </span>
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onViewCourse(course.slug); }}>
                 View Course <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
