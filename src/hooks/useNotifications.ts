@@ -15,9 +15,9 @@ export function useNotifications() {
         const token = await requestNotificationPermission();
         if (!token) return;
 
-        // Upsert token to avoid duplicates
+        // Upsert token with device type
         await supabase.from("device_tokens").upsert(
-          { user_id: user.id, token },
+          { user_id: user.id, token, device_type: "web" },
           { onConflict: "user_id,token" }
         );
       } catch (error) {
