@@ -8,6 +8,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const BATCH_SIZE = 15;
+const BATCH_DELAY_MS = 400;
+
 // Get OAuth2 access token from Firebase service account
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -22,7 +25,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const unsignedToken = `${header}.${payload}`;
 
-  // Import the private key
   const pemContents = serviceAccount.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -56,6 +58,89 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
   }
   return tokenData.access_token;
+}
+
+// Send a single FCM message, return { ok, stale, error? }
+async function sendFcmMessage(
+  fcmUrl: string,
+  accessToken: string,
+  token: string,
+  session: any,
+  minutesBefore: number
+): Promise<{ ok: boolean; stale: boolean; error?: string }> {
+  try {
+    const res = await fetch(fcmUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: {
+            title: "🧘 Playoga",
+            body: `${session.title} starts in ${minutesBefore} minutes`,
+          },
+          webpush: { fcm_options: { link: "/live" } },
+          data: { url: "/live" },
+        },
+      }),
+    });
+
+    if (res.ok) {
+      return { ok: true, stale: false };
+    }
+
+    const errBody = await res.json();
+    const errorCode = errBody?.error?.details?.[0]?.errorCode || errBody?.error?.code;
+    const stale = errorCode === "UNREGISTERED" || errorCode === 404;
+    return {
+      ok: false,
+      stale,
+      error: `FCM error for token ${token.substring(0, 10)}...: ${JSON.stringify(errBody?.error?.message || errBody)}`,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      stale: false,
+      error: `Failed to send to token ${token.substring(0, 10)}...: ${e}`,
+    };
+  }
+}
+
+// Process tokens in batches with delay between batches
+async function sendInBatches(
+  tokens: string[],
+  session: any,
+  fcmUrl: string,
+  accessToken: string,
+  minutesBefore: number
+): Promise<{ notified: number; staleTokens: string[]; errors: string[] }> {
+  let notified = 0;
+  const staleTokens: string[] = [];
+  const errors: string[] = [];
+
+  for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+    const batch = tokens.slice(i, i + BATCH_SIZE);
+
+    const results = await Promise.all(
+      batch.map((token) => sendFcmMessage(fcmUrl, accessToken, token, session, minutesBefore))
+    );
+
+    for (const result of results) {
+      if (result.ok) notified++;
+      if (result.stale) staleTokens.push(batch[results.indexOf(result)]);
+      if (result.error) errors.push(result.error);
+    }
+
+    // Delay between batches to avoid rate limits
+    if (i + BATCH_SIZE < tokens.length) {
+      await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+    }
+  }
+
+  return { notified, staleTokens, errors };
 }
 
 serve(async (req) => {
@@ -93,7 +178,7 @@ serve(async (req) => {
 
     if (!sessions || sessions.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No upcoming sessions to notify about", notified: 0 }),
+        JSON.stringify({ success: true, message: "No upcoming sessions to notify about", notified: 0, sessions: 0, totalTokens: 0, staleTokensCleaned: 0, errors: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -109,7 +194,7 @@ serve(async (req) => {
 
     if (!activeSubscriptions || activeSubscriptions.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No subscribed users found", notified: 0 }),
+        JSON.stringify({ success: true, message: "No subscribed users found", notified: 0, sessions: sessions.length, totalTokens: 0, staleTokensCleaned: 0, errors: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -126,67 +211,36 @@ serve(async (req) => {
 
     if (!tokens || tokens.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No device tokens found for subscribed users", notified: 0 }),
+        JSON.stringify({ success: true, message: "No device tokens found for subscribed users", notified: 0, sessions: sessions.length, totalTokens: 0, staleTokensCleaned: 0, errors: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Deduplicate tokens
+    const uniqueTokens = [...new Set(tokens.map((t: any) => t.token))];
 
     // Get FCM access token
     const accessToken = await getAccessToken(serviceAccount);
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
     let totalNotified = 0;
-    const errors: string[] = [];
-    const staleTokens: string[] = [];
+    const allErrors: string[] = [];
+    const allStaleTokens: string[] = [];
 
+    // Process each session with batched parallel sending
     for (const session of sessions) {
-      for (const { token } of tokens) {
-        try {
-          const res = await fetch(fcmUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              message: {
-                token,
-                notification: {
-                  title: "🧘 Playoga",
-                  body: `${session.title} starts in 30 minutes`,
-                },
-                webpush: {
-                  fcm_options: {
-                    link: "/live",
-                  },
-                },
-                data: {
-                  url: "/live",
-                },
-              },
-            }),
-          });
-
-          if (res.ok) {
-            totalNotified++;
-          } else {
-            const errBody = await res.json();
-            const errorCode = errBody?.error?.details?.[0]?.errorCode || errBody?.error?.code;
-            // Mark unregistered tokens for cleanup
-            if (errorCode === "UNREGISTERED" || errorCode === 404) {
-              staleTokens.push(token);
-            }
-            errors.push(`FCM error for token ${token.substring(0, 10)}...: ${JSON.stringify(errBody?.error?.message || errBody)}`);
-          }
-        } catch (e) {
-          errors.push(`Failed to send to token ${token.substring(0, 10)}...: ${e}`);
-        }
-      }
+      const { notified, staleTokens, errors } = await sendInBatches(
+        uniqueTokens, session, fcmUrl, accessToken, minutesBefore
+      );
+      totalNotified += notified;
+      allStaleTokens.push(...staleTokens);
+      allErrors.push(...errors);
     }
 
     // Clean up stale tokens
-    if (staleTokens.length > 0) {
-      await supabase.from("device_tokens").delete().in("token", staleTokens);
+    const uniqueStaleTokens = [...new Set(allStaleTokens)];
+    if (uniqueStaleTokens.length > 0) {
+      await supabase.from("device_tokens").delete().in("token", uniqueStaleTokens);
     }
 
     return new Response(
@@ -194,9 +248,9 @@ serve(async (req) => {
         success: true,
         notified: totalNotified,
         sessions: sessions.length,
-        totalTokens: tokens.length,
-        staleTokensCleaned: staleTokens.length,
-        errors: errors.length > 0 ? errors : undefined,
+        totalTokens: uniqueTokens.length,
+        staleTokensCleaned: uniqueStaleTokens.length,
+        errors: allErrors.length > 0 ? allErrors : [],
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
