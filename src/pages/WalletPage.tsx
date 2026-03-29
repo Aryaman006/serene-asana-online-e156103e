@@ -570,16 +570,31 @@ const WalletPage: React.FC = () => {
                   ) : (
                     <div className="space-y-3">
                       {withdrawals.map((w) => (
-                        <div key={w.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                          <div>
-                            <p className="font-medium text-sm">
-                              ₹{w.amount} via {w.payment_method.toUpperCase()}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(w.created_at), 'MMM d, yyyy')}
-                            </p>
+                        <div key={w.id} className="py-3 border-b border-border last:border-0">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">
+                                ₹{w.amount} via {w.payment_method === 'bank_transfer' ? 'Bank Transfer' : 'UPI'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(w.created_at), 'MMM d, yyyy h:mm a')}
+                              </p>
+                            </div>
+                            {getStatusBadge(w.status)}
                           </div>
-                          {getStatusBadge(w.status)}
+                          {w.status === 'rejected' && w.admin_notes && (
+                            <div className="mt-2 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+                              <p className="text-xs text-destructive font-medium">Reason: {w.admin_notes}</p>
+                            </div>
+                          )}
+                          {w.status === 'approved' && (
+                            <p className="text-xs text-muted-foreground mt-1">Your request has been approved and will be processed soon.</p>
+                          )}
+                          {w.status === 'completed' && w.processed_at && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Processed on {format(new Date(w.processed_at), 'MMM d, yyyy')}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
