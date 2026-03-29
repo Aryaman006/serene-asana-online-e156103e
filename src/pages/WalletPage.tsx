@@ -44,7 +44,7 @@ const WalletPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'bank'>('upi');
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'bank_transfer'>('upi');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [upiId, setUpiId] = useState('');
   const [bankName, setBankName] = useState('');
