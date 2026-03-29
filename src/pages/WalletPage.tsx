@@ -324,9 +324,9 @@ const WalletPage: React.FC = () => {
                       </Button>
                       <Button
                         type="button"
-                        variant={paymentMethod === 'bank' ? 'default' : 'outline'}
+                        variant={paymentMethod === 'bank_transfer' ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => setPaymentMethod('bank')}
+                        onClick={() => setPaymentMethod('bank_transfer')}
                       >
                         Bank Transfer
                       </Button>
