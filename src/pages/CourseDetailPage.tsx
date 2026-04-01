@@ -98,15 +98,24 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
-  const handleShare = async () => {
-    const url = window.location.href;
-    const shareData = { title: course?.title, text: course?.description || `Check out this course: ${course?.title}`, url };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copied!', description: 'Course link copied to clipboard.' });
-    }
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = course?.description || `Check out this course: ${course?.title}`;
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    toast({ title: 'Link copied!', description: 'Course link copied to clipboard.' });
+  };
+
+  const handleWhatsAppShare = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${course?.title}\n${shareUrl}`)}`, '_blank');
+  };
+
+  const handleTwitterShare = () => {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(course?.title || '')}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+  };
+
+  const handleFacebookShare = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
   };
 
   const formatPrice = () => {
