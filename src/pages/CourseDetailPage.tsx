@@ -99,7 +99,7 @@ const CourseDetailPage: React.FC = () => {
   };
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const shareText = course?.description || `Check out this course: ${course?.title}`;
+  
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
