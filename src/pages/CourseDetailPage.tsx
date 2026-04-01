@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, Clock, Eye, ArrowLeft, CheckCircle, User as UserIcon } from 'lucide-react';
+import { BookOpen, Clock, Eye, ArrowLeft, CheckCircle, User as UserIcon, Share2, Copy, Check } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
 
 const CourseDetailPage: React.FC = () => {
