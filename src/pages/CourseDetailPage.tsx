@@ -164,7 +164,12 @@ const CourseDetailPage: React.FC = () => {
               </div>
             )}
 
-            <h1 className="font-display text-3xl md:text-4xl font-bold">{course.title}</h1>
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="font-display text-3xl md:text-4xl font-bold">{course.title}</h1>
+              <Button variant="outline" size="icon" onClick={handleShare} className="shrink-0 mt-1" title="Share this course">
+                <Share2 className="w-5 h-5" />
+              </Button>
+            </div>
 
             {/* Meta */}
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
