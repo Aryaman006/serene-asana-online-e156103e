@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, Clock, Eye, ArrowLeft, CheckCircle, User as UserIcon } from 'lucide-react';
+import { BookOpen, Clock, Eye, ArrowLeft, CheckCircle, User as UserIcon, Share2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const CourseDetailPage: React.FC = () => {
@@ -98,6 +98,17 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = { title: course?.title, text: course?.description || `Check out this course: ${course?.title}`, url };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Link copied!', description: 'Course link copied to clipboard.' });
+    }
+  };
+
   const formatPrice = () => {
     if (!course) return 'Free';
     if (course.price_inr && course.price_inr > 0) return `₹${course.price_inr}`;
@@ -153,7 +164,12 @@ const CourseDetailPage: React.FC = () => {
               </div>
             )}
 
-            <h1 className="font-display text-3xl md:text-4xl font-bold">{course.title}</h1>
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="font-display text-3xl md:text-4xl font-bold">{course.title}</h1>
+              <Button variant="outline" size="icon" onClick={handleShare} className="shrink-0 mt-1" title="Share this course">
+                <Share2 className="w-5 h-5" />
+              </Button>
+            </div>
 
             {/* Meta */}
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
