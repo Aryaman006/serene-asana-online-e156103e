@@ -98,6 +98,17 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = { title: course?.title, text: course?.description || `Check out this course: ${course?.title}`, url };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Link copied!', description: 'Course link copied to clipboard.' });
+    }
+  };
+
   const formatPrice = () => {
     if (!course) return 'Free';
     if (course.price_inr && course.price_inr > 0) return `₹${course.price_inr}`;
