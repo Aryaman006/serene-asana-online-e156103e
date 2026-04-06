@@ -192,12 +192,31 @@ export const SignupForm: React.FC = () => {
               Have a friend's referral code? Enter it here to connect your accounts.
             </p>
           </div>
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="terms"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              disabled={isLoading}
+              className="mt-0.5"
+            />
+            <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+              I agree to the{' '}
+              <Link to="/terms" className="text-primary hover:underline font-medium" target="_blank">
+                Terms of Use
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy-policy" className="text-primary hover:underline font-medium" target="_blank">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
             type="submit"
             className="w-full bg-gradient-warm hover:opacity-90 transition-opacity"
-            disabled={isLoading}
+            disabled={isLoading || !termsAccepted}
           >
             {isLoading ? (
               <>
