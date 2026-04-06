@@ -24,6 +24,7 @@ export const SignupForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const refFromUrl = searchParams.get('ref') || '';
   const [referralCode, setReferralCode] = useState(refFromUrl);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const passwordsMatch = password === confirmPassword;
 
