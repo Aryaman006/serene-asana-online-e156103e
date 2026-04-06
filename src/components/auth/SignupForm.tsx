@@ -202,13 +202,13 @@ export const SignupForm: React.FC = () => {
             />
             <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
               I agree to the{' '}
-              <Link to="/terms" className="text-primary hover:underline font-medium" target="_blank">
+              <a href="https://playoga.co.in/terms" className="text-primary hover:underline font-medium" target="_blank" rel="noopener noreferrer">
                 Terms of Use
-              </Link>{' '}
+              </a>{' '}
               and{' '}
-              <Link to="/privacy-policy" className="text-primary hover:underline font-medium" target="_blank">
+              <a href="https://playoga.co.in/privacy" className="text-primary hover:underline font-medium" target="_blank" rel="noopener noreferrer">
                 Privacy Policy
-              </Link>
+              </a>
             </label>
           </div>
         </CardContent>
