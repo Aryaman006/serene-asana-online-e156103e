@@ -60,19 +60,26 @@ export const SignupForm: React.FC = () => {
         description: error.message,
       });
     } else {
-      // Process referral if referral code exists (from URL or manual input)
-      if (referralCode.trim()) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
+      // Process referral and store terms acceptance
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Store terms acceptance
+          await supabase
+            .from('profiles')
+            .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+            .eq('user_id', session.user.id);
+
+          // Process referral if referral code exists
+          if (referralCode.trim()) {
             await supabase.rpc('process_referral', {
               _referral_code: referralCode.trim(),
               _referred_user_id: session.user.id,
             });
           }
-        } catch (e) {
-          console.error('Referral processing error:', e);
         }
+      } catch (e) {
+        console.error('Post-signup processing error:', e);
       }
       toast.success('Account created!', {
         description: 'Please check your email to verify your account.',
