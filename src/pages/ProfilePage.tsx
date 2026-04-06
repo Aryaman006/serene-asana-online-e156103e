@@ -400,7 +400,7 @@ const ProfilePage: React.FC = () => {
                     className="w-full bg-[#25D366] hover:bg-[#20BA5C] text-white"
                   >
                     <a
-                      href={`https://wa.me/916289379872?text=${encodeURIComponent('Hi Playoga Support, I need help with my account.')}`}
+                      href={`https://wa.me/919820104856?text=${encodeURIComponent('Hi Playoga Support, I need help with my account.')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
