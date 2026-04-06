@@ -25,6 +25,7 @@ import {
   Loader2,
   LogOut,
   Wallet,
+  MessageCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
