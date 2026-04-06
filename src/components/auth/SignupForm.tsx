@@ -31,6 +31,11 @@ export const SignupForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!termsAccepted) {
+      toast.error('You must agree to the Terms of Use and Privacy Policy');
+      return;
+    }
+
     if (!passwordsMatch) {
       toast.error('Passwords do not match');
       return;
