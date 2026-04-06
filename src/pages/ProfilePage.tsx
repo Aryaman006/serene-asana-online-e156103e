@@ -382,6 +382,35 @@ const ProfilePage: React.FC = () => {
                 </CardContent>
               </Card>
 
+              {/* Help & Support */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                    Help & Support
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Need help? Chat with our support team on WhatsApp.
+                  </p>
+                  <Button
+                    asChild
+                    size="sm"
+                    className="w-full bg-[#25D366] hover:bg-[#20BA5C] text-white"
+                  >
+                    <a
+                      href={`https://wa.me/916289379872?text=${encodeURIComponent('Hi Playoga Support, I need help with my account.')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Chat with Support
+                    </a>
+                  </Button>
+                </CardContent>
+              </Card>
+
               {/* Watch Stats */}
               <Card>
                 <CardHeader>
