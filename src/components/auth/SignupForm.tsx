@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 
 export const SignupForm: React.FC = () => {
@@ -23,12 +24,18 @@ export const SignupForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const refFromUrl = searchParams.get('ref') || '';
   const [referralCode, setReferralCode] = useState(refFromUrl);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!termsAccepted) {
+      toast.error('You must agree to the Terms of Use and Privacy Policy');
+      return;
+    }
+
     if (!passwordsMatch) {
       toast.error('Passwords do not match');
       return;
@@ -53,19 +60,26 @@ export const SignupForm: React.FC = () => {
         description: error.message,
       });
     } else {
-      // Process referral if referral code exists (from URL or manual input)
-      if (referralCode.trim()) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
+      // Process referral and store terms acceptance
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          // Store terms acceptance
+          await supabase
+            .from('profiles')
+            .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+            .eq('user_id', session.user.id);
+
+          // Process referral if referral code exists
+          if (referralCode.trim()) {
             await supabase.rpc('process_referral', {
               _referral_code: referralCode.trim(),
               _referred_user_id: session.user.id,
             });
           }
-        } catch (e) {
-          console.error('Referral processing error:', e);
         }
+      } catch (e) {
+        console.error('Post-signup processing error:', e);
       }
       toast.success('Account created!', {
         description: 'Please check your email to verify your account.',
@@ -178,12 +192,31 @@ export const SignupForm: React.FC = () => {
               Have a friend's referral code? Enter it here to connect your accounts.
             </p>
           </div>
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="terms"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              disabled={isLoading}
+              className="mt-0.5"
+            />
+            <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
+              I agree to the{' '}
+              <Link to="/terms" className="text-primary hover:underline font-medium" target="_blank">
+                Terms of Use
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy-policy" className="text-primary hover:underline font-medium" target="_blank">
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button
             type="submit"
             className="w-full bg-gradient-warm hover:opacity-90 transition-opacity"
-            disabled={isLoading}
+            disabled={isLoading || !termsAccepted}
           >
             {isLoading ? (
               <>

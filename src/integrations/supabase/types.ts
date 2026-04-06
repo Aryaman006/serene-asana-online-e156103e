@@ -735,6 +735,8 @@ export type Database = {
           phone: string | null
           referral_code: string | null
           referred_by: string | null
+          terms_accepted: boolean | null
+          terms_accepted_at: string | null
           updated_at: string
           user_id: string
         }
@@ -746,6 +748,8 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          terms_accepted?: boolean | null
+          terms_accepted_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -757,6 +761,8 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          terms_accepted?: boolean | null
+          terms_accepted_at?: string | null
           updated_at?: string
           user_id?: string
         }
