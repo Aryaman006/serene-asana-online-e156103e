@@ -1,0 +1,1 @@
+ALTER TABLE public.live_sessions ADD COLUMN reminder_sent boolean NOT NULL DEFAULT false;
