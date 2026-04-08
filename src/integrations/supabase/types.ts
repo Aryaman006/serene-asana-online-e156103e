@@ -586,6 +586,7 @@ export type Database = {
           is_live: boolean | null
           is_premium: boolean | null
           max_participants: number | null
+          reminder_sent: boolean
           scheduled_at: string
           stream_url: string | null
           thumbnail_url: string | null
@@ -602,6 +603,7 @@ export type Database = {
           is_live?: boolean | null
           is_premium?: boolean | null
           max_participants?: number | null
+          reminder_sent?: boolean
           scheduled_at: string
           stream_url?: string | null
           thumbnail_url?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           is_live?: boolean | null
           is_premium?: boolean | null
           max_participants?: number | null
+          reminder_sent?: boolean
           scheduled_at?: string
           stream_url?: string | null
           thumbnail_url?: string | null

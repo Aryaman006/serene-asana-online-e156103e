@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.send-session-notification]
 verify_jwt = false
 
+[functions.notify-session-scheduled]
+verify_jwt = false
+
 [functions.link-corporate]
 verify_jwt = false
 
