@@ -58,23 +58,19 @@ export const LoginForm: React.FC = () => {
         !window.location.hostname.includes('lovableproject.com') &&
         !window.location.hostname.includes('localhost');
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
         ...(isCustomDomain && { skipBrowserRedirect: true }),
       });
-
-      if (error) {
-        toast.error('Failed to send reset email', {
-          description: error.message,
-        });
-      } else {
-        toast.success('Password reset email sent!', {
-          description: `Check your inbox at ${email}`,
-        });
-      }
     } catch {
-      toast.error('An unexpected error occurred');
+      // Silently handle errors for security
     }
+
+    // Always show the same message regardless of success/failure
+    toast.success('Check your email inbox', {
+      description: `If an account exists for ${email}, we've sent a password reset link. If you don't see it, please check your spam folder.`,
+      duration: 8000,
+    });
 
     setIsResettingPassword(false);
   };
