@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.course-verify-payment]
 verify_jwt = false
+
+[functions.manage-staff]
+verify_jwt = false
