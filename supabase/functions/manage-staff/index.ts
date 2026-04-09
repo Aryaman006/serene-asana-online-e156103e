@@ -82,23 +82,47 @@ serve(async (req) => {
         });
       }
 
-      const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      });
+      // Check if user already exists
+      const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
 
-      if (createError) {
-        return new Response(JSON.stringify({ error: createError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      let userId: string;
+
+      if (existingUser) {
+        userId = existingUser.id;
+
+        const { data: existingStaff } = await adminClient
+          .from("staff_members")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (existingStaff) {
+          return new Response(JSON.stringify({ error: "This user is already a staff member" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
         });
+
+        if (createError) {
+          return new Response(JSON.stringify({ error: createError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        userId = newUser.user.id;
       }
 
-      await adminClient.from("admins").insert({ user_id: newUser.user.id });
+      await adminClient.from("admins").upsert({ user_id: userId }, { onConflict: "user_id" });
 
       const { error: staffError } = await adminClient.from("staff_members").insert({
-        user_id: newUser.user.id,
+        user_id: userId,
         email,
         name,
         role: role || "staff",
@@ -107,7 +131,9 @@ serve(async (req) => {
       });
 
       if (staffError) {
-        await adminClient.auth.admin.deleteUser(newUser.user.id);
+        if (!existingUser) {
+          await adminClient.auth.admin.deleteUser(userId);
+        }
         return new Response(JSON.stringify({ error: staffError.message }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
