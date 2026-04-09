@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,11 +82,34 @@ serve(async (req) => {
         });
       }
 
-      // Check if user already exists
-      const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
+      const normalizedEmail = String(email).trim().toLowerCase();
+      let existingUser: { id: string } | null = null;
+      let page = 1;
+      const perPage = 1000;
+
+      while (!existingUser) {
+        const { data: usersPage, error: listUsersError } = await adminClient.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+
+        if (listUsersError) {
+          return new Response(JSON.stringify({ error: listUsersError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const users = usersPage?.users ?? [];
+        existingUser =
+          users.find((u: any) => String(u.email ?? "").trim().toLowerCase() === normalizedEmail) ?? null;
+
+        if (users.length < perPage) break;
+        page += 1;
+      }
 
       let userId: string;
+      let createdNewUser = false;
 
       if (existingUser) {
         userId = existingUser.id;
@@ -105,7 +128,7 @@ serve(async (req) => {
         }
       } else {
         const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-          email,
+          email: normalizedEmail,
           password,
           email_confirm: true,
         });
@@ -116,14 +139,16 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
         userId = newUser.user.id;
+        createdNewUser = true;
       }
 
       await adminClient.from("admins").upsert({ user_id: userId }, { onConflict: "user_id" });
 
       const { error: staffError } = await adminClient.from("staff_members").insert({
         user_id: userId,
-        email,
+        email: normalizedEmail,
         name,
         role: role || "staff",
         permissions: permissions || {},
@@ -131,7 +156,7 @@ serve(async (req) => {
       });
 
       if (staffError) {
-        if (!existingUser) {
+        if (createdNewUser) {
           await adminClient.auth.admin.deleteUser(userId);
         }
         return new Response(JSON.stringify({ error: staffError.message }), {
