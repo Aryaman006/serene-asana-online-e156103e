@@ -8,81 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const BATCH_SIZE = 15;
-const BATCH_DELAY_MS = 400;
-
-async function getAccessToken(serviceAccount: any): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({
-    iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/firebase.messaging",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  }));
-
-  const unsignedToken = `${header}.${payload}`;
-  const pemContents = serviceAccount.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "");
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  const key = await crypto.subtle.importKey(
-    "pkcs8", binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(unsignedToken)
-  );
-
-  const signedToken = `${unsignedToken}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${signedToken}`,
-  });
-
-  const tokenData = await tokenRes.json();
-  if (!tokenData.access_token) {
-    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
-  }
-  return tokenData.access_token;
-}
-
-async function sendFcmMessage(
-  fcmUrl: string, accessToken: string, token: string,
-  title: string, body: string
-): Promise<{ ok: boolean; stale: boolean }> {
-  try {
-    const res = await fetch(fcmUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: { title, body },
-          webpush: { fcm_options: { link: "/live" } },
-          data: { url: "/live" },
-        },
-      }),
-    });
-
-    if (res.ok) return { ok: true, stale: false };
-    const errBody = await res.json();
-    const errorCode = errBody?.error?.details?.[0]?.errorCode || errBody?.error?.code;
-    return { ok: false, stale: errorCode === "UNREGISTERED" || errorCode === 404 };
-  } catch {
-    return { ok: false, stale: false };
-  }
-}
-
 async function sendResendEmail(
   resendApiKey: string, fromEmail: string,
   to: string, subject: string, htmlBody: string
@@ -134,13 +59,9 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const firebaseServiceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
     const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Playoga <noreply@playoga.co.in>";
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const serviceAccount = JSON.parse(firebaseServiceAccountJson);
-    const projectId = serviceAccount.project_id;
 
     let minutesBefore = 30;
     if (req.method === "POST") {
@@ -164,37 +85,19 @@ serve(async (req) => {
 
     if (!sessions || sessions.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No upcoming sessions to notify about", notified: 0, emailsSent: 0 }),
+        JSON.stringify({ success: true, message: "No upcoming sessions to notify about", emailsSent: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // --- FCM Push to subscribed users (existing behavior) ---
-    const { data: activeSubscriptions } = await supabase
-      .from("subscriptions")
-      .select("user_id")
-      .eq("status", "active")
-      .or("expires_at.is.null,expires_at.gt." + now.toISOString());
-
-    const subscribedUserIds = activeSubscriptions
-      ? [...new Set(activeSubscriptions.map((s: any) => s.user_id))]
-      : [];
-
-    let fcmTokens: string[] = [];
-    if (subscribedUserIds.length > 0) {
-      const { data: tokens } = await supabase
-        .from("device_tokens")
-        .select("token")
-        .in("user_id", subscribedUserIds);
-      fcmTokens = tokens ? [...new Set(tokens.map((t: any) => t.token))] : [];
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: "RESEND_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const accessToken = await getAccessToken(serviceAccount);
-    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-
-    let totalFcmNotified = 0;
     let totalEmailsSent = 0;
-    const allStaleTokens: string[] = [];
 
     for (const session of sessions) {
       // Format date in IST
@@ -206,48 +109,30 @@ serve(async (req) => {
         hour: "2-digit", minute: "2-digit", hour12: true,
       });
 
-      // FCM push notifications
-      for (let i = 0; i < fcmTokens.length; i += BATCH_SIZE) {
-        const batch = fcmTokens.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map((token) =>
-            sendFcmMessage(fcmUrl, accessToken, token,
-              "🧘 Playoga", `${session.title} starts in ${minutesBefore} minutes`)
-          )
-        );
-        totalFcmNotified += results.filter((r) => r.ok).length;
-        results.forEach((r, idx) => { if (r.stale) allStaleTokens.push(batch[idx]); });
-        if (i + BATCH_SIZE < fcmTokens.length) {
-          await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
-        }
-      }
-
       // Email reminders to REGISTERED users only
-      if (resendApiKey) {
-        const { data: registrations } = await supabase
-          .from("live_session_registrations")
-          .select("user_id")
-          .eq("session_id", session.id);
+      const { data: registrations } = await supabase
+        .from("live_session_registrations")
+        .select("user_id")
+        .eq("session_id", session.id);
 
-        if (registrations && registrations.length > 0) {
-          const regUserIds = registrations.map((r: any) => r.user_id);
+      if (registrations && registrations.length > 0) {
+        const regUserIds = registrations.map((r: any) => r.user_id);
 
-          // Get emails from auth.users via admin API
-          const emailMap: Record<string, string> = {};
-          for (const uid of regUserIds) {
-            const { data: userData } = await supabase.auth.admin.getUserById(uid);
-            if (userData?.user?.email) {
-              emailMap[uid] = userData.user.email;
-            }
+        // Get emails from auth.users via admin API
+        const emailMap: Record<string, string> = {};
+        for (const uid of regUserIds) {
+          const { data: userData } = await supabase.auth.admin.getUserById(uid);
+          if (userData?.user?.email) {
+            emailMap[uid] = userData.user.email;
           }
+        }
 
-          const emailHtml = buildReminderEmailHtml(session, dateStr);
-          const subject = `🧘 Reminder: ${session.title} starts in 30 minutes!`;
+        const emailHtml = buildReminderEmailHtml(session, dateStr);
+        const subject = `🧘 Reminder: ${session.title} starts in 30 minutes!`;
 
-          for (const email of Object.values(emailMap)) {
-            const sent = await sendResendEmail(resendApiKey, resendFromEmail, email, subject, emailHtml);
-            if (sent) totalEmailsSent++;
-          }
+        for (const email of Object.values(emailMap)) {
+          const sent = await sendResendEmail(resendApiKey, resendFromEmail, email, subject, emailHtml);
+          if (sent) totalEmailsSent++;
         }
       }
 
@@ -258,20 +143,11 @@ serve(async (req) => {
         .eq("id", session.id);
     }
 
-    // Clean stale tokens
-    const uniqueStaleTokens = [...new Set(allStaleTokens)];
-    if (uniqueStaleTokens.length > 0) {
-      await supabase.from("device_tokens").delete().in("token", uniqueStaleTokens);
-    }
-
     return new Response(
       JSON.stringify({
         success: true,
-        fcmNotified: totalFcmNotified,
         emailsSent: totalEmailsSent,
         sessions: sessions.length,
-        totalTokens: fcmTokens.length,
-        staleTokensCleaned: uniqueStaleTokens.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
