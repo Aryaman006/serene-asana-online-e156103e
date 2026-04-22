@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireSubscription = false,
 }) => {
-  const { user, isLoading, hasActiveSubscription } = useAuth();
+  const { user, isLoading, hasActiveSubscription, hasPhone } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -28,6 +28,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // New users (no phone on profile) must complete profile before using the app.
+  // hasPhone === null means we're still checking — wait, don't redirect.
+  if (
+    hasPhone === false &&
+    location.pathname !== '/complete-profile'
+  ) {
+    return <Navigate to="/complete-profile" replace />;
   }
 
   if (requireSubscription && !hasActiveSubscription) {

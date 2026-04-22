@@ -28,6 +28,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
 import DeleteAccountPage from "./pages/DeleteAccountPage";
+import CompleteProfilePage from "./pages/CompleteProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,9 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />
+
+            {/* Onboarding for new users (gated by ProtectedRoute) */}
+            <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfilePage /></ProtectedRoute>} />
 
             {/* Protected Routes - login required */}
             <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />

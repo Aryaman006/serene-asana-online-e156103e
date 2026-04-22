@@ -8,11 +8,13 @@ interface AuthContextType {
   isLoading: boolean;
   hasActiveSubscription: boolean;
   yogicPoints: number;
+  hasPhone: boolean | null;
   signUp: (email: string, password: string, fullName: string, phone?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshSubscriptionStatus: () => Promise<void>;
   refreshYogicPoints: () => Promise<void>;
+  refreshHasPhone: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [yogicPoints, setYogicPoints] = useState(0);
+  const [hasPhone, setHasPhone] = useState<boolean | null>(null);
+
+  const checkHasPhone = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!error) {
+        const phoneVal = (data?.phone ?? '').toString().trim();
+        setHasPhone(phoneVal.length > 0);
+      }
+    } catch (e) {
+      console.error('Error checking phone:', e);
+    }
+  };
 
   const checkSubscriptionStatus = async (userId: string) => {
     try {
@@ -80,6 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshHasPhone = async () => {
+    if (user) {
+      await checkHasPhone(user.id);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -92,10 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTimeout(() => {
             checkSubscriptionStatus(session.user.id);
             fetchYogicPoints(session.user.id);
+            checkHasPhone(session.user.id);
           }, 0);
         } else {
           setHasActiveSubscription(false);
           setYogicPoints(0);
+          setHasPhone(null);
         }
         
         setIsLoading(false);
@@ -110,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         checkSubscriptionStatus(session.user.id);
         fetchYogicPoints(session.user.id);
+        checkHasPhone(session.user.id);
       }
       
       setIsLoading(false);
@@ -166,11 +195,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         hasActiveSubscription,
         yogicPoints,
+        hasPhone,
         signUp,
         signIn,
         signOut,
         refreshSubscriptionStatus,
         refreshYogicPoints,
+        refreshHasPhone,
       }}
     >
       {children}
