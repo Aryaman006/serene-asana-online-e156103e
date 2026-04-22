@@ -107,44 +107,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let mounted = true;
+
+    const hydrateUserData = (userId: string) => {
+      // Run all three in parallel; don't block UI
+      Promise.allSettled([
+        checkSubscriptionStatus(userId),
+        fetchYogicPoints(userId),
+        checkHasPhone(userId),
+      ]);
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          // Use setTimeout to avoid potential race conditions
-          setTimeout(() => {
-            checkSubscriptionStatus(session.user.id);
-            fetchYogicPoints(session.user.id);
-            checkHasPhone(session.user.id);
-          }, 0);
+          hydrateUserData(session.user.id);
         } else {
           setHasActiveSubscription(false);
           setYogicPoints(0);
           setHasPhone(null);
         }
-        
+
         setIsLoading(false);
       }
     );
 
     // Then get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        checkSubscriptionStatus(session.user.id);
-        fetchYogicPoints(session.user.id);
-        checkHasPhone(session.user.id);
+        hydrateUserData(session.user.id);
       }
-      
+
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, phone?: string) => {
