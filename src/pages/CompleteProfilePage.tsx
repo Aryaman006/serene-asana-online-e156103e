@@ -17,7 +17,7 @@ const phoneSchema = z
   .regex(/^[+]?[0-9\s-]{7,15}$/, { message: 'Enter a valid phone number' });
 
 const CompleteProfilePage: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshHasPhone } = useAuth();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +47,8 @@ const CompleteProfilePage: React.FC = () => {
       return;
     }
 
+    // Refresh auth state so ProtectedRoute sees the new phone before navigating
+    await refreshHasPhone();
     toast.success('Welcome to Playoga!');
     navigate('/', { replace: true });
   };
