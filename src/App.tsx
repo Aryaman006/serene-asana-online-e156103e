@@ -29,6 +29,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
 import DeleteAccountPage from "./pages/DeleteAccountPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
             {/* Onboarding for new users (gated by ProtectedRoute) */}
             <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfilePage /></ProtectedRoute>} />

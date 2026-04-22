@@ -653,6 +653,48 @@ export type Database = {
         }
         Relationships: []
       }
+      mobile_auth_codes: {
+        Row: {
+          access_token: string
+          code_hash: string
+          created_at: string
+          deep_link_scheme: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          session_id: string | null
+          source: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          code_hash: string
+          created_at?: string
+          deep_link_scheme?: string
+          expires_at?: string
+          id?: string
+          refresh_token: string
+          session_id?: string | null
+          source?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          code_hash?: string
+          created_at?: string
+          deep_link_scheme?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          session_id?: string | null
+          source?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
