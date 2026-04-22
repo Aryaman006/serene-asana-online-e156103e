@@ -18,8 +18,22 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      const params = new URLSearchParams(window.location.search);
+      const source = params.get('source');
+      const scheme = params.get('scheme');
+      const isAppSource = source === 'app';
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+
+      if (isAppSource) {
+        callbackUrl.searchParams.set('source', 'app');
+        if (scheme) {
+          callbackUrl.searchParams.set('scheme', scheme);
+        }
+      }
+
       const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
+        redirect_uri: callbackUrl.toString(),
+        extraParams: isAppSource ? { prompt: 'select_account' } : undefined,
       });
 
       if (result.error) {
@@ -34,7 +48,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       if (result.redirected) return;
 
       // Tokens received and session set — SPA navigate (no full reload)
-      navigate('/', { replace: true });
+      navigate(isAppSource ? `${callbackUrl.pathname}${callbackUrl.search}` : '/', { replace: true });
     } catch (e: any) {
       toast.error('Sign-in failed', {
         description: e?.message || 'Please try again.',
