@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   label = 'Continue with Google',
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -31,9 +33,8 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       // If browser is redirecting to Google, just wait
       if (result.redirected) return;
 
-      // Tokens received and session set
-      toast.success('Welcome!');
-      window.location.href = '/';
+      // Tokens received and session set — SPA navigate (no full reload)
+      navigate('/', { replace: true });
     } catch (e: any) {
       toast.error('Sign-in failed', {
         description: e?.message || 'Please try again.',
