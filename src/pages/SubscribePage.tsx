@@ -56,14 +56,15 @@ const SubscribePage: React.FC = () => {
   const [discount, setDiscount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponId, setCouponId] = useState<string | null>(null);
+  const [basePrice, setBasePrice] = useState(999);
+  const [gstRate, setGstRate] = useState(0.05);
+  const [planName, setPlanName] = useState("Premium Yearly");
 
   // Corporate coupon state
   const [isCorporate, setIsCorporate] = useState(false);
   const [corporateId, setCorporateId] = useState<string | null>(null);
   const [corporateName, setCorporateName] = useState<string | null>(null);
 
-  const basePrice = 999; // Production price
-  const gstRate = 0.05;
   const discountedPrice = isCorporate ? 0 : basePrice - discount;
   const gstAmount = isCorporate ? 0 : discountedPrice * gstRate;
   const totalAmount = isCorporate ? 0 : discountedPrice + gstAmount;
@@ -84,6 +85,25 @@ const SubscribePage: React.FC = () => {
     return () => {
       document.body.removeChild(script);
     };
+  }, []);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      const { data, error } = await supabase
+        .from("pricing_settings" as any)
+        .select("plan_name, base_price, gst_rate")
+        .eq("plan_key", "premium_yearly")
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (!error && data) {
+        setPlanName(data.plan_name || "Premium Yearly");
+        setBasePrice(Number(data.base_price) || 999);
+        setGstRate(Number(data.gst_rate) || 0.05);
+      }
+    };
+
+    loadPricing();
   }, []);
 
   // Auto login from app token
@@ -230,7 +250,7 @@ const SubscribePage: React.FC = () => {
 
       // Create order
       const orderResponse = await supabase.functions.invoke("create-razorpay-order", {
-        body: { amount: basePrice, couponCode: couponCode || undefined },
+        body: { couponCode: couponCode || undefined },
       });
 
       if (orderResponse.error) {
@@ -245,7 +265,7 @@ const SubscribePage: React.FC = () => {
         amount: amount,
         currency: "INR",
         name: "PLAYoga",
-        description: "Premium Yearly Subscription",
+        description: `${planName} Subscription`,
         order_id: orderId,
         prefill: {
           name: prefill.name || "",
