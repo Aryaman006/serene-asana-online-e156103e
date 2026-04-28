@@ -56,14 +56,15 @@ const SubscribePage: React.FC = () => {
   const [discount, setDiscount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponId, setCouponId] = useState<string | null>(null);
+  const [basePrice, setBasePrice] = useState(999);
+  const [gstRate, setGstRate] = useState(0.05);
+  const [planName, setPlanName] = useState("Premium Yearly");
 
   // Corporate coupon state
   const [isCorporate, setIsCorporate] = useState(false);
   const [corporateId, setCorporateId] = useState<string | null>(null);
   const [corporateName, setCorporateName] = useState<string | null>(null);
 
-  const basePrice = 999; // Production price
-  const gstRate = 0.05;
   const discountedPrice = isCorporate ? 0 : basePrice - discount;
   const gstAmount = isCorporate ? 0 : discountedPrice * gstRate;
   const totalAmount = isCorporate ? 0 : discountedPrice + gstAmount;
@@ -84,6 +85,26 @@ const SubscribePage: React.FC = () => {
     return () => {
       document.body.removeChild(script);
     };
+  }, []);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      const { data, error } = await supabase
+        .from("pricing_settings" as any)
+        .select("plan_name, base_price, gst_rate")
+        .eq("plan_key", "premium_yearly")
+        .eq("is_active", true)
+        .maybeSingle();
+
+      const pricing = data as any;
+      if (!error && pricing) {
+        setPlanName(pricing.plan_name || "Premium Yearly");
+        setBasePrice(Number(pricing.base_price) || 999);
+        setGstRate(Number(pricing.gst_rate) || 0.05);
+      }
+    };
+
+    loadPricing();
   }, []);
 
   // Auto login from app token
@@ -230,7 +251,7 @@ const SubscribePage: React.FC = () => {
 
       // Create order
       const orderResponse = await supabase.functions.invoke("create-razorpay-order", {
-        body: { amount: basePrice, couponCode: couponCode || undefined },
+        body: { couponCode: couponCode || undefined },
       });
 
       if (orderResponse.error) {
@@ -245,7 +266,7 @@ const SubscribePage: React.FC = () => {
         amount: amount,
         currency: "INR",
         name: "PLAYoga",
-        description: "Premium Yearly Subscription",
+        description: `${planName} Subscription`,
         order_id: orderId,
         prefill: {
           name: prefill.name || "",
@@ -336,7 +357,7 @@ const SubscribePage: React.FC = () => {
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">Unlock Your Full Potential</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Get unlimited access to all premium yoga classes, live sessions, and exclusive content for just ₹999/year.
+              Get unlimited access to all premium yoga classes, live sessions, and exclusive content for just ₹{basePrice}/year.
             </p>
           </div>
 

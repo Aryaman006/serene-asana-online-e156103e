@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.notify-new-video]
 verify_jwt = false
+
+[functions.update-pricing-settings]
+verify_jwt = false

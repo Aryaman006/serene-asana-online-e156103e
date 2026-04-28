@@ -771,6 +771,45 @@ export type Database = {
           },
         ]
       }
+      pricing_settings: {
+        Row: {
+          base_price: number
+          created_at: string
+          currency: string
+          gst_rate: number
+          id: string
+          is_active: boolean
+          plan_key: string
+          plan_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          base_price?: number
+          created_at?: string
+          currency?: string
+          gst_rate?: number
+          id?: string
+          is_active?: boolean
+          plan_key: string
+          plan_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          currency?: string
+          gst_rate?: number
+          id?: string
+          is_active?: boolean
+          plan_key?: string
+          plan_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

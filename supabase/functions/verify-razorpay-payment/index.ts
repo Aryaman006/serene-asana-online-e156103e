@@ -47,8 +47,9 @@ serve(async (req) => {
   }
 
   try {
+    const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
     const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
-    if (!RAZORPAY_KEY_SECRET) {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
       throw new Error("Razorpay secret not configured");
     }
 
@@ -98,6 +99,24 @@ serve(async (req) => {
       throw new Error("Invalid payment signature");
     }
 
+    const orderDetailsResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpay_order_id}`, {
+      headers: {
+        Authorization: "Basic " + btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`),
+      },
+    });
+
+    if (!orderDetailsResponse.ok) {
+      throw new Error("Failed to verify payment order");
+    }
+
+    const orderDetails = await orderDetailsResponse.json();
+    const trustedNotes = orderDetails.notes || {};
+    const trustedTotalAmount = Number(orderDetails.amount || 0) / 100;
+    const trustedBaseAmount = Number(trustedNotes.base_amount || baseAmount || 0);
+    const trustedGstAmount = Number(trustedNotes.gst_amount || gstAmount || 0);
+    const trustedDiscountAmount = Number(trustedNotes.discount_amount || discountAmount || 0);
+    const trustedCouponId = trustedNotes.coupon_id || couponId || null;
+
     // Calculate subscription dates
     const startsAt = new Date();
     const expiresAt = new Date();
@@ -112,8 +131,8 @@ serve(async (req) => {
         plan_name: "Premium Yearly",
         starts_at: startsAt.toISOString(),
         expires_at: expiresAt.toISOString(),
-        amount_paid: totalAmount,
-        gst_amount: gstAmount,
+        amount_paid: trustedTotalAmount,
+        gst_amount: trustedGstAmount,
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" })
       .select()
@@ -135,15 +154,15 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         subscription_id: subscription.id,
-        amount: baseAmount,
-        discount_amount: discountAmount || 0,
-        gst_amount: gstAmount,
-        total_amount: totalAmount,
+        amount: trustedBaseAmount,
+        discount_amount: trustedDiscountAmount,
+        gst_amount: trustedGstAmount,
+        total_amount: trustedTotalAmount,
         currency: "INR",
         status: "completed",
         razorpay_order_id,
         razorpay_payment_id,
-        coupon_id: couponId || null,
+        coupon_id: trustedCouponId,
         invoice_number: invoiceNumber,
       });
 
@@ -156,19 +175,19 @@ serve(async (req) => {
     }
 
     // Update coupon usage if used
-    if (couponId) {
+    if (trustedCouponId) {
       try {
         const { data: coupon } = await supabase
           .from("coupons")
           .select("uses_count")
-          .eq("id", couponId)
+          .eq("id", trustedCouponId)
           .single();
         
         if (coupon) {
           await supabase
             .from("coupons")
             .update({ uses_count: (coupon.uses_count || 0) + 1 })
-            .eq("id", couponId);
+            .eq("id", trustedCouponId);
         }
       } catch {
         // Ignore coupon update errors
