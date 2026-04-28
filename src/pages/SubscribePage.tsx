@@ -96,10 +96,11 @@ const SubscribePage: React.FC = () => {
         .eq("is_active", true)
         .maybeSingle();
 
-      if (!error && data) {
-        setPlanName(data.plan_name || "Premium Yearly");
-        setBasePrice(Number(data.base_price) || 999);
-        setGstRate(Number(data.gst_rate) || 0.05);
+      const pricing = data as any;
+      if (!error && pricing) {
+        setPlanName(pricing.plan_name || "Premium Yearly");
+        setBasePrice(Number(pricing.base_price) || 999);
+        setGstRate(Number(pricing.gst_rate) || 0.05);
       }
     };
 
@@ -356,7 +357,7 @@ const SubscribePage: React.FC = () => {
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-bold mb-4">Unlock Your Full Potential</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Get unlimited access to all premium yoga classes, live sessions, and exclusive content for just ₹999/year.
+              Get unlimited access to all premium yoga classes, live sessions, and exclusive content for just ₹{basePrice}/year.
             </p>
           </div>
 
