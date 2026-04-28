@@ -40,7 +40,22 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { amount, couponCode } = await req.json();
+    const { couponCode } = await req.json();
+
+    const { data: pricing, error: pricingError } = await supabase
+      .from("pricing_settings")
+      .select("base_price, gst_rate, currency")
+      .eq("plan_key", "premium_yearly")
+      .eq("is_active", true)
+      .single();
+
+    if (pricingError || !pricing) {
+      throw new Error("Subscription pricing is not configured");
+    }
+
+    const amount = Number(pricing.base_price);
+    const gstRate = Number(pricing.gst_rate);
+    const currency = pricing.currency || "INR";
 
     // Validate coupon if provided
     let discount = 0;
@@ -74,7 +89,7 @@ serve(async (req) => {
     }
 
     const baseAmount = amount - discount;
-    const gstAmount = Math.round(baseAmount * 0.05 * 100) / 100;
+    const gstAmount = Math.round(baseAmount * gstRate * 100) / 100;
     const totalAmount = baseAmount + gstAmount;
     const amountInPaise = Math.round(totalAmount * 100);
 
@@ -91,7 +106,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         amount: amountInPaise,
-        currency: "INR",
+        currency,
         receipt: receipt,
         notes: {
           user_id: user.id,
@@ -128,7 +143,7 @@ serve(async (req) => {
       JSON.stringify({
         orderId: order.id,
         amount: amountInPaise,
-        currency: "INR",
+        currency,
         keyId: RAZORPAY_KEY_ID,
         prefill: {
           name: profile?.full_name || "",
