@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, isPast, isFuture, isToday, addMinutes } from "date-fns";
-import { Calendar, Clock, Users, Play, Bell, Crown, Loader2, Radio } from "lucide-react";
+import { Calendar, Clock, Users, Play, Bell, Crown, Loader2, Radio, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface LiveSession {
@@ -115,6 +115,30 @@ const LiveClassesPage: React.FC = () => {
     }
   };
 
+  const handleShare = async (session: LiveSession) => {
+    const shareUrl = `${window.location.origin}/live?session=${session.id}`;
+    const shareData = {
+      title: session.title,
+      text: `Join this Playoga live class: ${session.title}`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Live class link copied");
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        console.error("Share error:", err);
+        toast.error("Could not share this class");
+      }
+    }
+  };
+
   // Helper to check if session has ended (scheduled_at + duration has passed)
   const isSessionEnded = (session: LiveSession) => {
     const sessionEnd = addMinutes(new Date(session.scheduled_at), session.duration_minutes || 60);
@@ -168,7 +192,19 @@ const LiveClassesPage: React.FC = () => {
           )}
         </div>
         <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-          <h3 className="font-display text-base sm:text-lg font-semibold mb-1 sm:mb-2 line-clamp-1">{session.title}</h3>
+          <div className="flex items-start justify-between gap-3 mb-1 sm:mb-2">
+            <h3 className="font-display text-base sm:text-lg font-semibold line-clamp-1">{session.title}</h3>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => handleShare(session)}
+              aria-label={`Share ${session.title}`}
+            >
+              <Share2 className="w-4 h-4" />
+            </Button>
+          </div>
           {session.description && (
             <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">{session.description}</p>
           )}
