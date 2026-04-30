@@ -129,27 +129,28 @@ serve(async (req) => {
         purchaseCurrency = purchaseData.currency;
       }
 
-      // Fetch course title and user email for confirmation email
+      // Fetch course title/slug and user email for confirmation email
       let courseTitle = "Your Course";
+      let courseSlug: string | null = null;
       let userEmail = "";
 
       if (courseId) {
         const { data: courseData } = await supabase
           .from("courses")
-          .select("title")
+          .select("title, slug")
           .eq("id", courseId)
           .single();
-        if (courseData) courseTitle = courseData.title;
+        if (courseData) {
+          courseTitle = courseData.title;
+          courseSlug = courseData.slug;
+        }
       }
 
       const { data: { user: authUser } } = await supabase.auth.admin.getUserById(userId);
-      if (authUser?.email) {
-        userEmail = authUser.email;
-      }
+      if (authUser?.email) userEmail = authUser.email;
 
-      // Send confirmation email via Resend (non-blocking)
       if (userEmail) {
-        sendEnrollmentEmail(userEmail, courseTitle, purchaseAmount, purchaseCurrency)
+        sendEnrollmentEmail(userEmail, courseTitle, courseSlug, purchaseAmount, purchaseCurrency, razorpay_payment_id)
           .catch((err) => console.error("Email send error:", err));
       }
     }
