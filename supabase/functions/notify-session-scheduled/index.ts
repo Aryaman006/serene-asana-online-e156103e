@@ -203,6 +203,7 @@ serve(async (req) => {
       await supabase.from("device_tokens").delete().in("token", staleTokens);
     }
 
+    await emailPromise;
     return new Response(
       JSON.stringify({ success: true, notified, totalTokens: uniqueTokens.length, staleTokensCleaned: staleTokens.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
