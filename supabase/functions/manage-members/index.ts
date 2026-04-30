@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendBrandedEmail, sendBrandedEmailBatch } from "../_shared/email/brand.ts";
+import { corporateMemberWelcomeEmail } from "../_shared/email/corporate-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -128,6 +130,20 @@ serve(async (req) => {
         });
       }
 
+      // Fire-and-forget welcome email
+      try {
+        const { data: corpInfo } = await adminClient
+          .from("corporates").select("name, coupon_code").eq("id", corporate_id).single();
+        if (corpInfo) {
+          const { subject, html } = corporateMemberWelcomeEmail({
+            corporateName: corpInfo.name,
+            couponCode: corpInfo.coupon_code,
+            memberEmail: normalizedEmail,
+          });
+          await sendBrandedEmail({ to: normalizedEmail, subject, html });
+        }
+      } catch (e) { console.error("welcome email failed:", e); }
+
       return new Response(
         JSON.stringify({ success: true, member }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -189,6 +205,23 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Fire-and-forget bulk welcome
+      try {
+        const { data: corpInfo } = await adminClient
+          .from("corporates").select("name, coupon_code").eq("id", corporate_id).single();
+        if (corpInfo) {
+          // One email per recipient (personalized signup link)
+          await Promise.all(newEmails.map((to) => {
+            const { subject, html } = corporateMemberWelcomeEmail({
+              corporateName: corpInfo.name,
+              couponCode: corpInfo.coupon_code,
+              memberEmail: to,
+            });
+            return sendBrandedEmail({ to, subject, html });
+          }));
+        }
+      } catch (e) { console.error("bulk welcome email failed:", e); }
 
       return new Response(
         JSON.stringify({

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendBrandedEmail } from "../_shared/email/brand.ts";
+import { corporateActivatedEmail } from "../_shared/email/corporate-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -162,6 +164,18 @@ serve(async (req) => {
       .update({ is_premium: true })
       .eq("corporate_id", corporate.id)
       .eq("email", userEmail.toLowerCase().trim());
+
+    // Send branded activation email (fire-and-forget)
+    try {
+      const { data: profile } = await supabase
+        .from("profiles").select("full_name").eq("user_id", userId).maybeSingle();
+      const { subject, html } = corporateActivatedEmail({
+        corporateName: corporate.name,
+        expiresAt: expiresAt.toISOString(),
+        fullName: profile?.full_name,
+      });
+      await sendBrandedEmail({ to: userEmail, subject, html });
+    } catch (e) { console.error("activation email failed:", e); }
 
     return new Response(
       JSON.stringify({
