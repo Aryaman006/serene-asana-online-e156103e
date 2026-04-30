@@ -59,3 +59,9 @@ verify_jwt = false
 
 [functions.update-pricing-settings]
 verify_jwt = false
+
+[functions.notify-course-updated]
+verify_jwt = false
+
+[functions.auth-email-hook]
+verify_jwt = false
