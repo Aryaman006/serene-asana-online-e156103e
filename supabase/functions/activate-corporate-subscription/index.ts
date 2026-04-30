@@ -165,6 +165,18 @@ serve(async (req) => {
       .eq("corporate_id", corporate.id)
       .eq("email", userEmail.toLowerCase().trim());
 
+    // Send branded activation email (fire-and-forget)
+    try {
+      const { data: profile } = await supabase
+        .from("profiles").select("full_name").eq("user_id", userId).maybeSingle();
+      const { subject, html } = corporateActivatedEmail({
+        corporateName: corporate.name,
+        expiresAt: expiresAt.toISOString(),
+        fullName: profile?.full_name,
+      });
+      await sendBrandedEmail({ to: userEmail, subject, html });
+    } catch (e) { console.error("activation email failed:", e); }
+
     return new Response(
       JSON.stringify({
         success: true,
