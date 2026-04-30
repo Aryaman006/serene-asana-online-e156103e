@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BRAND, buildEmail, fmtDuration, sendBrandedEmailBatch } from "../_shared/email/brand.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,6 +100,55 @@ serve(async (req) => {
       });
     }
 
+    // ===== Branded Resend email blast (parallel to FCM) =====
+    const emailPromise = (async () => {
+      try {
+        // Fetch category name
+        let categoryName = "Yoga & Wellness";
+        if (video.category_id) {
+          const { data: cat } = await supabase
+            .from("categories").select("name").eq("id", video.category_id).maybeSingle();
+          if (cat?.name) categoryName = cat.name;
+        }
+        // Get all users via admin API (paginated)
+        const recipients: string[] = [];
+        let page = 1;
+        while (true) {
+          const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+          if (error || !data?.users?.length) break;
+          for (const u of data.users) if (u.email && u.email_confirmed_at) recipients.push(u.email);
+          if (data.users.length < 1000) break;
+          page++;
+        }
+
+        const watchUrl = `${BRAND.url}/video/${video.id}`;
+        const publishDate = new Date(video.created_at || Date.now()).toLocaleDateString("en-IN", {
+          day: "numeric", month: "long", year: "numeric",
+        });
+        const subject = `New Session Uploaded: ${video.title} 🧘`;
+        const html = buildEmail({
+          preheader: `${video.title} — just published on Playoga`,
+          heading: video.title,
+          intro: video.description ? String(video.description).slice(0, 240) : "A fresh session is now ready for your practice.",
+          heroImage: video.thumbnail_url || null,
+          heroBadge: video.is_premium ? "PREMIUM" : "NEW",
+          infoRows: [
+            { label: "Category", value: categoryName },
+            { label: "Duration", value: fmtDuration(video.duration_seconds) || "—" },
+            { label: "Published", value: publishDate },
+            ...(video.yogic_points ? [{ label: "Yogic Points", value: `+${video.yogic_points}` }] : []),
+          ],
+          cta: { label: "Watch Now", url: watchUrl },
+          secondaryCta: { label: "Browse all sessions", url: `${BRAND.url}/browse` },
+          footerNote: "You're receiving this because you have a Playoga account.",
+        });
+        const result = await sendBrandedEmailBatch(recipients, subject, html);
+        console.log(`[notify-new-video] emails sent=${result.sent} failed=${result.failed} total=${recipients.length}`);
+      } catch (e) {
+        console.error("[notify-new-video] email blast error:", e);
+      }
+    })();
+
     // Get ALL device tokens
     const { data: tokens, error: tokensError } = await supabase
       .from("device_tokens")
@@ -106,6 +156,7 @@ serve(async (req) => {
 
     if (tokensError) throw tokensError;
     if (!tokens || tokens.length === 0) {
+      await emailPromise;
       return new Response(JSON.stringify({ success: true, message: "No device tokens found", notified: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -167,6 +218,7 @@ serve(async (req) => {
       await supabase.from("device_tokens").delete().in("token", staleTokens);
     }
 
+    await emailPromise;
     return new Response(
       JSON.stringify({ success: true, notified, totalTokens: uniqueTokens.length, staleTokensCleaned: staleTokens.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

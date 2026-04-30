@@ -1,7 +1,8 @@
  import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
  import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
- 
+ import { BRAND, buildEmail, sendBrandedEmail } from "../_shared/email/brand.ts";
+
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -200,6 +201,38 @@ serve(async (req) => {
     } catch (e) {
       console.error("Referral commission processing error:", e);
       // Don't throw - subscription is already active
+    }
+
+    // Send branded subscription-activated + receipt email
+    try {
+      if (user.email) {
+        const html = buildEmail({
+          preheader: `Premium activated · Invoice ${invoiceNumber}`,
+          heading: "Welcome to Playoga Premium 🌟",
+          intro: "Your payment was successful and your premium access is now active. Enjoy unlimited sessions, live classes, and exclusive content.",
+          heroBadge: "PREMIUM ACTIVE",
+          highlightBox: { title: "Total Paid", body: `₹${trustedTotalAmount.toFixed(2)}` },
+          infoRows: [
+            { label: "Plan", value: "Premium Yearly" },
+            { label: "Base Amount", value: `₹${trustedBaseAmount.toFixed(2)}` },
+            { label: "GST", value: `₹${trustedGstAmount.toFixed(2)}` },
+            ...(trustedDiscountAmount > 0 ? [{ label: "Discount", value: `-₹${trustedDiscountAmount.toFixed(2)}` }] : []),
+            { label: "Invoice", value: invoiceNumber },
+            { label: "Payment ID", value: razorpay_payment_id },
+            { label: "Valid Until", value: expiresAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) },
+          ],
+          cta: { label: "Start Practicing", url: `${BRAND.url}/browse` },
+          secondaryCta: { label: "View live classes", url: `${BRAND.url}/live` },
+          footerNote: "This email is your payment receipt. Please retain for your records.",
+        });
+        await sendBrandedEmail({
+          to: user.email,
+          subject: `🌟 Premium Activated · Receipt ${invoiceNumber}`,
+          html,
+        });
+      }
+    } catch (e) {
+      console.error("[verify-razorpay-payment] receipt email error:", e);
     }
 
     return new Response(

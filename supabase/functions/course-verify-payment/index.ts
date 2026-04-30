@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
+import { BRAND, buildEmail, sendBrandedEmail } from "../_shared/email/brand.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,72 +12,31 @@ const corsHeaders = {
 async function sendEnrollmentEmail(
   userEmail: string,
   courseTitle: string,
+  courseSlug: string | null,
   amount: number,
-  currency: string
+  currency: string,
+  paymentId: string
 ) {
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendApiKey) {
-    console.error("RESEND_API_KEY not configured, skipping email");
-    return;
-  }
-
-  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
-
-  const currencySymbols: Record<string, string> = {
-    INR: "₹",
-    USD: "$",
-    EUR: "€",
-    GBP: "£",
-  };
-  const symbol = currencySymbols[currency] || currency;
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [userEmail],
-        subject: `🎉 Enrollment Confirmed: ${courseTitle}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0;">🎉 You're Enrolled!</h1>
-            </div>
-            <div style="padding: 30px; background: #f9f9f9;">
-              <p style="font-size: 16px; color: #333;">
-                Congratulations! Your payment of ${symbol}${amount} has been successfully processed.
-              </p>
-              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #667eea;">Course Details</h3>
-                <p><strong>Course:</strong> ${courseTitle}</p>
-                <p><strong>Amount Paid:</strong> ${symbol}${amount}</p>
-                <p><strong>Status:</strong> ✅ Active</p>
-              </div>
-              <p style="font-size: 14px; color: #666;">
-                You now have full access to the course. Start learning right away!
-              </p>
-              <p style="font-size: 14px; color: #666;">
-                If you have any questions, feel free to reach out to our support team.
-              </p>
-            </div>
-          </div>
-        `,
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Resend API error:", res.status, errText);
-    } else {
-      console.log("Enrollment email sent to:", userEmail);
-    }
-  } catch (emailError) {
-    console.error("Failed to send enrollment email:", emailError);
-  }
+  const symbols: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+  const sym = symbols[currency] || currency;
+  const courseUrl = courseSlug ? `${BRAND.url}/courses/${courseSlug}` : `${BRAND.url}/my-courses`;
+  const html = buildEmail({
+    preheader: `You're enrolled in ${courseTitle}`,
+    heading: `You're enrolled in ${courseTitle} 🎉`,
+    intro: "Thanks for your purchase! Your payment was confirmed and your course is unlocked.",
+    heroBadge: "ENROLLED",
+    highlightBox: { title: "Amount Paid", body: `${sym}${amount}` },
+    infoRows: [
+      { label: "Course", value: courseTitle },
+      { label: "Amount", value: `${sym}${amount}` },
+      { label: "Payment ID", value: paymentId },
+      { label: "Status", value: "✅ Active" },
+    ],
+    cta: { label: "Start Learning", url: courseUrl },
+    secondaryCta: { label: "View all my courses", url: `${BRAND.url}/my-courses` },
+    footerNote: "This is your payment receipt. Keep it for your records.",
+  });
+  await sendBrandedEmail({ to: userEmail, subject: `🎉 Enrollment Confirmed: ${courseTitle}`, html });
 }
 
 serve(async (req) => {
@@ -169,27 +129,28 @@ serve(async (req) => {
         purchaseCurrency = purchaseData.currency;
       }
 
-      // Fetch course title and user email for confirmation email
+      // Fetch course title/slug and user email for confirmation email
       let courseTitle = "Your Course";
+      let courseSlug: string | null = null;
       let userEmail = "";
 
       if (courseId) {
         const { data: courseData } = await supabase
           .from("courses")
-          .select("title")
+          .select("title, slug")
           .eq("id", courseId)
           .single();
-        if (courseData) courseTitle = courseData.title;
+        if (courseData) {
+          courseTitle = courseData.title;
+          courseSlug = courseData.slug;
+        }
       }
 
       const { data: { user: authUser } } = await supabase.auth.admin.getUserById(userId);
-      if (authUser?.email) {
-        userEmail = authUser.email;
-      }
+      if (authUser?.email) userEmail = authUser.email;
 
-      // Send confirmation email via Resend (non-blocking)
       if (userEmail) {
-        sendEnrollmentEmail(userEmail, courseTitle, purchaseAmount, purchaseCurrency)
+        sendEnrollmentEmail(userEmail, courseTitle, courseSlug, purchaseAmount, purchaseCurrency, razorpay_payment_id)
           .catch((err) => console.error("Email send error:", err));
       }
     }

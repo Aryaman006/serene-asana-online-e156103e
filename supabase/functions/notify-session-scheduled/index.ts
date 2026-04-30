@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BRAND, buildEmail, fmtIST, sendBrandedEmailBatch } from "../_shared/email/brand.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +97,43 @@ serve(async (req) => {
       hour: "2-digit", minute: "2-digit", hour12: true,
     });
 
+    // ===== Branded Resend email blast =====
+    const emailPromise = (async () => {
+      try {
+        const recipients: string[] = [];
+        let page = 1;
+        while (true) {
+          const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+          if (error || !data?.users?.length) break;
+          for (const u of data.users) if (u.email && u.email_confirmed_at) recipients.push(u.email);
+          if (data.users.length < 1000) break;
+          page++;
+        }
+        const joinUrl = session.stream_url || `${BRAND.url}/live`;
+        const subject = `Live Session Scheduled: ${session.title} 🎥`;
+        const html = buildEmail({
+          preheader: `${session.title} on ${dateStr} IST`,
+          heading: session.title,
+          intro: session.description || "A new live session has been scheduled. Save your spot below.",
+          heroImage: session.thumbnail_url || null,
+          heroBadge: session.is_premium ? "PREMIUM LIVE" : "LIVE SESSION",
+          highlightBox: { title: "When", body: `${dateStr} IST` },
+          infoRows: [
+            ...(session.instructor_name ? [{ label: "Instructor", value: session.instructor_name }] : []),
+            { label: "Duration", value: `${session.duration_minutes ?? 60} min` },
+            ...(session.max_participants ? [{ label: "Seats", value: `${session.max_participants}` }] : []),
+          ],
+          cta: { label: "Reserve My Spot", url: `${BRAND.url}/live` },
+          secondaryCta: { label: "View all live classes", url: `${BRAND.url}/live` },
+          footerNote: "Add this to your calendar so you don't miss it.",
+        });
+        const result = await sendBrandedEmailBatch(recipients, subject, html);
+        console.log(`[notify-session-scheduled] emails sent=${result.sent} failed=${result.failed}`);
+      } catch (e) {
+        console.error("[notify-session-scheduled] email blast error:", e);
+      }
+    })();
+
     // Get ALL device tokens (for all users)
     const { data: tokens, error: tokensError } = await supabase
       .from("device_tokens")
@@ -103,6 +141,7 @@ serve(async (req) => {
 
     if (tokensError) throw tokensError;
     if (!tokens || tokens.length === 0) {
+      await emailPromise;
       return new Response(JSON.stringify({ success: true, message: "No device tokens found", notified: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -164,6 +203,7 @@ serve(async (req) => {
       await supabase.from("device_tokens").delete().in("token", staleTokens);
     }
 
+    await emailPromise;
     return new Response(
       JSON.stringify({ success: true, notified, totalTokens: uniqueTokens.length, staleTokensCleaned: staleTokens.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
