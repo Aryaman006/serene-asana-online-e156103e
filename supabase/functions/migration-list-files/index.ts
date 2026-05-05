@@ -17,5 +17,5 @@ serve(async (req) => {
       offset += 1000;
     }
   }
-  return new Response(JSON.stringify(data), { headers: { ...cors, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(all), { headers: { ...cors, "Content-Type": "application/json" } });
 });
