@@ -37,56 +37,46 @@ serve(async (req) => {
        throw new Error("Invalid coupon code");
      }
  
-     // Validate code format - alphanumeric only, max 50 chars
-     const sanitizedCode = code.trim().toUpperCase();
-     if (!/^[A-Z0-9_-]{1,50}$/.test(sanitizedCode)) {
-       return new Response(
-         JSON.stringify({ valid: false, message: "Invalid coupon format" }),
-         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-       );
-     }
- 
-     // Query coupon with service role
-     const { data: coupon, error: couponError } = await supabase
-       .from("coupons")
-       .select("id, discount_percentage, discount_amount, valid_from, valid_until, max_uses, uses_count")
-       .eq("code", sanitizedCode)
-       .eq("is_active", true)
-       .single();
- 
-     if (couponError || !coupon) {
-       return new Response(
-         JSON.stringify({ valid: false, message: "Invalid coupon code" }),
-         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-       );
-     }
- 
-     // Check validity dates
-     const now = new Date();
-     const validFrom = coupon.valid_from ? new Date(coupon.valid_from) : null;
-     const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
- 
-     if (validFrom && now < validFrom) {
-       return new Response(
-         JSON.stringify({ valid: false, message: "Coupon not yet active" }),
-         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-       );
-     }
- 
-     if (validUntil && now > validUntil) {
-       return new Response(
-         JSON.stringify({ valid: false, message: "Coupon has expired" }),
-         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-       );
-     }
- 
-     // Check usage limit
-     if (coupon.max_uses && (coupon.uses_count || 0) >= coupon.max_uses) {
-       return new Response(
-         JSON.stringify({ valid: false, message: "Coupon usage limit reached" }),
-         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-       );
-     }
+    // Uniform invalid response — prevents coupon enumeration via distinct error messages or timing
+    const invalidResponse = async () => {
+      // Add a small jitter to mask timing differences between code paths
+      await new Promise((r) => setTimeout(r, 40 + Math.floor(Math.random() * 60)));
+      return new Response(
+        JSON.stringify({ valid: false, message: "Invalid or unavailable coupon code" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    };
+
+    // Validate code format - alphanumeric only, max 50 chars
+    const sanitizedCode = code.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{1,50}$/.test(sanitizedCode)) {
+      return await invalidResponse();
+    }
+
+    // Query coupon with service role
+    const { data: coupon, error: couponError } = await supabase
+      .from("coupons")
+      .select("id, discount_percentage, discount_amount, valid_from, valid_until, max_uses, uses_count")
+      .eq("code", sanitizedCode)
+      .eq("is_active", true)
+      .single();
+
+    if (couponError || !coupon) {
+      return await invalidResponse();
+    }
+
+    // Check validity dates
+    const now = new Date();
+    const validFrom = coupon.valid_from ? new Date(coupon.valid_from) : null;
+    const validUntil = coupon.valid_until ? new Date(coupon.valid_until) : null;
+
+    if (validFrom && now < validFrom) return await invalidResponse();
+    if (validUntil && now > validUntil) return await invalidResponse();
+
+    // Check usage limit
+    if (coupon.max_uses && (coupon.uses_count || 0) >= coupon.max_uses) {
+      return await invalidResponse();
+    }
  
      // Calculate discount
      let discount = 0;
