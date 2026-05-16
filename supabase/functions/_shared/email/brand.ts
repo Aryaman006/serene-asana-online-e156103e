@@ -222,23 +222,73 @@ export async function sendBrandedEmail(opts: SendOpts): Promise<{ ok: boolean; s
   }
 }
 
+// Uses Resend's bulk /emails/batch endpoint: up to 100 messages per HTTP call.
+// Each call counts as 1 request against the 5/sec rate-limit, so we space them ~300ms apart.
+// Retries each chunk up to 3 times on 429/5xx with exponential backoff.
 export async function sendBrandedEmailBatch(
   recipients: string[],
   subject: string,
   html: string,
-  opts: { batchSize?: number; delayMs?: number } = {}
+  opts: { chunkSize?: number; delayMs?: number } = {}
 ): Promise<{ sent: number; failed: number }> {
-  const batchSize = opts.batchSize ?? 10;
-  const delayMs = opts.delayMs ?? 250;
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) {
+    console.error("[email] RESEND_API_KEY not configured");
+    return { sent: 0, failed: recipients.length };
+  }
+  const from = Deno.env.get("RESEND_FROM_EMAIL") || "Playoga <noreply@playoga.co.in>";
+  const replyTo = BRAND.supportEmail;
+  const chunkSize = Math.min(opts.chunkSize ?? 100, 100);
+  const delayMs = opts.delayMs ?? 1100; // batch endpoint also counts toward 5 req/sec; stay well under
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const unique = [...new Set(recipients.filter((e) => e && emailRe.test(e.trim())))].map((e) => e.trim());
   let sent = 0;
   let failed = 0;
-  const unique = [...new Set(recipients.filter(Boolean))];
-  for (let i = 0; i < unique.length; i += batchSize) {
-    const slice = unique.slice(i, i + batchSize);
-    const results = await Promise.all(slice.map((to) => sendBrandedEmail({ to, subject, html })));
-    sent += results.filter((r) => r.ok).length;
-    failed += results.filter((r) => !r.ok).length;
-    if (i + batchSize < unique.length) {
+
+  async function sendChunk(slice: string[]): Promise<void> {
+    if (slice.length === 0) return;
+    const payload = slice.map((to) => ({ from, to: [to], subject, html, reply_to: replyTo }));
+    let attempt = 0;
+    while (attempt < 4) {
+      try {
+        const res = await fetch("https://api.resend.com/emails/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) { sent += slice.length; return; }
+        if (res.status === 429 || res.status >= 500) {
+          const retryAfter = Number(res.headers.get("retry-after")) || 0;
+          const backoff = retryAfter > 0 ? retryAfter * 1000 : 800 * Math.pow(2, attempt);
+          console.warn(`[email] batch ${res.status}, retry in ${backoff}ms (attempt ${attempt + 1})`);
+          await new Promise((r) => setTimeout(r, backoff));
+          attempt++;
+          continue;
+        }
+        // 4xx (e.g. 422 invalid recipient in batch) — split & retry to isolate bad address
+        const text = await res.text();
+        console.error(`[email] batch ${res.status}: ${text.slice(0, 300)} — splitting`);
+        if (slice.length > 1) {
+          const mid = Math.floor(slice.length / 2);
+          await sendChunk(slice.slice(0, mid));
+          await new Promise((r) => setTimeout(r, delayMs));
+          await sendChunk(slice.slice(mid));
+        } else {
+          failed += 1;
+        }
+        return;
+      } catch (e) {
+        console.error("[email] batch send error:", e);
+        attempt++;
+        await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
+      }
+    }
+    failed += slice.length;
+  }
+
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    await sendChunk(unique.slice(i, i + chunkSize));
+    if (i + chunkSize < unique.length) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
